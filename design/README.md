@@ -27,7 +27,8 @@ python3 mobile.py
 | `desktop5.py` | 16 Agents, 12 Settings, 20 Watching an agent live |
 | `desktop6.py` | 17 Today on first run, 18 Search, 19 Agents when something goes wrong |
 | `desktop7.py` | 21 The Mac app's menu bar item and a notification |
-| `mobile.py` | Mobile 01 to 06 |
+| `desktop8.py` | 22 and 23, adding a job by link |
+| `mobile.py` | Mobile 01 to 07 |
 | `foundations.py`, `cover.py` | The Foundations and Cover pages |
 
 `base.py` holds the theme (ChatGPT surfaces, t3code borders, Inter, pill buttons), the sidebar and top bar, and the pass that adds a company logo next to each company name. `logos.py` maps companies and job boards to their logos. `browserview.py` draws the mini browser for the live agent view.

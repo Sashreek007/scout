@@ -16,6 +16,7 @@ dropdown = f'''<div style="position:absolute;left:960px;top:36px;width:340px;pad
  {arow("Shopify","Pacing, next in 1:42","","#B4B4B4")}
  <div style="padding:8px 10px 4px" class="vstack"><div class="hstack" style="font-size:12px;color:#B4B4B4"><span>Applied today</span><span class="sp"></span><span>2 of 20</span></div><div class="bar"><i style="width:10%;background:#ECECEC"></i></div></div>
  <div style="height:1px;background:rgba(255,255,255,0.10);margin:4px 6px"></div>
+ <div class="hstack" style="padding:6px 10px;font-size:13.5px"><span>Add job from clipboard</span><span class="sp"></span><span style="color:#8F8F8F">⌘J</span></div>
  <div class="hstack" style="padding:6px 10px;font-size:13.5px"><span>Answer Element Fleet's question</span><span class="sp"></span><span style="color:#8F8F8F">⌘1</span></div>
  <div class="hstack" style="padding:6px 10px;font-size:13.5px"><span>Open scout</span><span class="sp"></span><span style="color:#8F8F8F">⌘O</span></div>
  <div class="hstack" style="padding:6px 10px;font-size:13.5px"><span>Pause all agents</span><span class="sp"></span><span style="color:#8F8F8F">⇧⌘P</span></div>

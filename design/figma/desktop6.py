@@ -45,6 +45,7 @@ palette = f'''<div style="position:absolute;left:50%;top:110px;margin-left:-310p
   <div class="note" style="padding:10px 12px 4px">Knowledge</div>
   {res('<span class="ltile" style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center">'+icon("memory","#B4B4B4",16)+'</span>',"Decision: Clio is fine for backend-led variants","Nov 4, from your feedback on a resume","")}
   <div class="note" style="padding:10px 12px 4px">Actions</div>
+  {res('<span class="ltile" style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center">'+icon("plus","#B4B4B4",16)+'</span>',"Add a job by link","Paste a link from LinkedIn, a careers page or anywhere",'<span class="kbd">⌘J</span>')}
   {res('<span class="ltile" style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center">'+icon("pause","#B4B4B4",16)+'</span>',"Pause scout","Agents finish their step, then wait",'<span class="kbd">⇧P</span>')}
   {res('<span class="ltile" style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);display:inline-flex;align-items:center;justify-content:center">'+icon("play","#B4B4B4",16)+'</span>',"Start the next agent","Wealthsimple is next in the queue",'')}
  </div>

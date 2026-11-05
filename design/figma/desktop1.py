@@ -101,7 +101,7 @@ jobs_rows = "".join([
 ])
 
 drawer = f'''<div class="card" style="width:350px;flex-shrink:0;display:flex;flex-direction:column">
- <div class="cardh" style="align-items:flex-start"><div class="vstack" style="gap:3px"><span class="note">greenhouse:northwind:7741203</span><h2 style="font-size:16px">Software Developer Intern</h2><span class="muted">Northwind Robotics · Toronto, ON · Winter 2027</span></div><div class="right">{icon("x","#6C7169",16)}</div></div>
+ <div class="cardh" style="align-items:flex-start"><div class="vstack" style="gap:3px"><span class="note">greenhouse:northwind:7741203</span><h2 style="font-size:16px">Software Developer Intern</h2><span class="muted">Northwind Robotics, Toronto, ON, Winter 2027</span></div><div class="right">{icon("x","#6C7169",16)}</div></div>
  <div class="cardb vstack" style="gap:16px">
   <div class="hstack">{score(82)}<span class="pill st-applied"><span class="d"></span>Apply</span><span class="mono muted">resume: backend</span><span class="sp"></span><span class="note">Claude Opus 5.5 · low effort</span></div>
   <div class="vstack" style="gap:6px"><span class="sectionlabel">Why it fits</span>
@@ -123,6 +123,7 @@ drawer = f'''<div class="card" style="width:350px;flex-shrink:0;display:flex;fle
  </div></div>'''
 
 jobs_body = f'''
+<div class="hstack" style="gap:10px"><div class="input" style="flex:1;max-width:620px;height:40px;border-radius:999px;gap:10px;color:var(--muted)">{icon("plus","#8F8F8F",16)}<span>Paste a job link from anywhere, LinkedIn included</span><span class="sp"></span><span class="kbd">⌘J</span></div><span class="btn pri">Add job</span><span class="sp"></span><span class="note">You added 3 jobs this week</span></div>
 <div class="tabs"><div class="tab on">Apply <span class="n">8</span></div><div class="tab">Maybe <span class="n">5</span></div><div class="tab">Skipped by triage <span class="n">14</span></div><div class="tab">Filtered out <span class="n">311</span></div><div class="tab">Closed <span class="n">22</span></div><div class="tab">All <span class="n">360</span></div></div>
 <div class="hstack" style="flex-wrap:wrap"><span class="chip on">{icon("filter","#fff",12)}Canada</span><span class="chip">Alberta first</span><span class="chip">Remote in Canada</span><span class="chip">Winter 2027</span><span class="chip">Summer 2027</span><span class="chip">Greenhouse</span><span class="chip">Lever</span><span class="chip">Ashby</span><span class="chip">Workday</span><span class="chip">Score 55+</span><span class="chip">Has flags</span><span class="sp"></span><span class="note">Sorted by score · auto-queue at 75</span></div>
 <div class="row" style="align-items:flex-start">

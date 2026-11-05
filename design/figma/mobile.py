@@ -97,5 +97,17 @@ m_agents = phone("Mobile / 06 Agents","Agents","3 running on your MacBook. 2 of 
 {magent("Clio","Filling, step 4 of 9","2:10",44,"#2DD4BF")}
 {magent("Northwind Robotics","Pacing, next in 1:42","",100,"#5A5A5A")}
 <div class="hstack" style="margin-top:4px"><span class="btn" style="flex:1;justify-content:center">Pause all</span><span class="btn pri" style="flex:1;justify-content:center">Start the next one</span></div>''', tab="agents")
-open("mobile.html","w").write(page([m_today, m_question, m_review, m_discord, m_live, m_agents]))
+from logos import board_logo
+m_add = phone("Mobile / 07 Add a job","Add a job","Shared from LinkedIn", f'''
+<div class="input" style="height:44px;border-radius:14px;gap:10px">{icon("ext","#8F8F8F",16)}<span class="mono" style="font-size:12px">linkedin.com/jobs/view/software-dev…</span></div>
+<div class="hstack note" style="gap:8px">{icon("lock","#8F8F8F",13)}<span>scout doesn't open LinkedIn. It read the title and company from the link.</span></div>
+<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+ <div class="hstack" style="gap:12px">{company_logo("Clio",40,10)}<div class="vstack" style="gap:2px;flex:1"><b style="font-size:16px;font-weight:600">Software Developer Intern</b><span class="muted" style="font-size:13px">Clio, Calgary or Edmonton</span></div>{score(86)}</div>
+ <div class="hstack note" style="gap:8px">{board_logo("gh",16,4)}<span>Same job found on Clio's Greenhouse board</span></div>
+ <div class="divider"></div>
+ <div class="hstack" style="font-size:14px">{icon("check","#34D399",15,2)}<span>Canada, Winter 2027, no blocking clauses</span></div>
+ <div class="hstack" style="font-size:14px">{icon("doc","#B4B4B4",15)}<span>Backend resume, tailored after you add it</span></div>
+</div>
+<span class="note" style="text-align:center">Works from any app's share sheet through the scout Shortcut.</span>''', tab="jobs", sticky='<div class="vstack" style="gap:10px"><span class="btn lg pri" style="width:100%;justify-content:center">Add and apply</span><span class="btn lg" style="width:100%;justify-content:center">Add to list</span></div>')
+open("mobile.html","w").write(page([m_today, m_question, m_review, m_discord, m_live, m_agents, m_add]))
 print("mobile ok")

@@ -60,6 +60,7 @@ scout runs in four places. A daily job in GitHub Actions finds and ranks posting
 scout has to:
 
 - Find internship and co-op postings in Canada every day from public sources.
+- Take a job link from him, found anywhere, and apply on the company's own site.
 - Drop the postings Sashreek can't or won't take, using rules he can read in code.
 - Rank the rest and say why.
 - Write a one-page resume for every application, tailored to the job description by the same rules used by hand today, and only from facts that are verified.
@@ -158,6 +159,7 @@ Everything Claude writes is checked by code against the knowledge base before Sa
 | A resume is rendered from a template, not written as free LaTeX by Claude. | Claude picks and rewords bullets. Code renders the `.tex` from the active base's preamble and macros, so the layout and fonts are always the same and every check can run on it. |
 | The pre-flight list from `rules.md` runs as code on every resume. | One page, line counts, bullet counts, bold spans, banned words, repeated verbs, never-print terms and number provenance are all checkable by a machine. The read-it-aloud test stays with him. |
 | Resume PDFs are stored in Firestore as base64, about 80 KB each. | It keeps scout on the free Spark plan. The agent uploads exactly the approved file and checks its hash. |
+| He can add any job by pasting its link, but scout never opens LinkedIn, Indeed, Glassdoor or Handshake. | Those sites ban automated access. Their links still carry the title and company, which is enough to find the same job on the company's own board. |
 | scout starts with an empty application history. | Past applications from before scout aren't imported. Sashreek decided this on November 5, 2026. |
 | scout is built like a coding harness: one server on the Mac, many clients, typed events. | Claude Code, Codex, OpenCode and t3code all converged on this. It gives live updates on every client from one source, and a protocol the Mac app and the web share. |
 | Every application is a session with its own log and a summary written after each turn. | Memory per application, like a chat thread. A later turn, like an interview invite weeks after applying, starts from the summary instead of rereading everything. |
@@ -183,6 +185,34 @@ Checked live on November 5, 2026.
 About 134 postings are in both GitHub lists, so together they hold roughly 520 unique Canadian postings. The vansh list uses short links that the collector has to follow to find the real apply URL.
 
 The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's listings or already stored on a job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
+
+### Jobs he adds himself
+
+scout doesn't watch LinkedIn, so when Sashreek finds a job anywhere, he gives scout the link. The job joins his list and then goes through the same steps as every other job: read the form, plan the answers, tailor the resume, his approval, and an agent applying on the company's own site. Issue #60.
+
+**Where he adds it.**
+
+- A paste box on the Jobs page, and "Add a job by link" in ⌘K search.
+- "Add job from clipboard" in the Mac app's menu bar.
+- On the phone, the share sheet. Android uses the dashboard's Web Share Target. iOS doesn't let a home-screen web app receive shares, so a one-tap Apple Shortcut opens `/jobs/add?url=` with the link filled in.
+
+**What scout does with each kind of link.**
+
+| Link | What scout does |
+|---|---|
+| A Greenhouse, Lever or Ashby posting | Reads the posting and its form through the same public APIs as a board job. |
+| A Workday posting | Reads the posting. Applying waits for Workday support (#25). |
+| Any other company careers page | Fetches the page once and has Claude pull out the title, location, term and description. Applying uses the generic filler (#40). Until that ships, scout tailors the resume and plans the answers, and he applies by hand. |
+| A link from the SimplifyJobs or vanshb03 lists | Matched to the listing scout already has. |
+| LinkedIn, Indeed, Glassdoor or Handshake | **Never opened.** scout reads the title and company from the link text when it has them, and otherwise asks him. Then it finds the same posting on the company's own board, from the boards and lists it already knows. If it can't, it asks him to paste the company's apply link. |
+
+**The rules that change for his own picks.**
+
+- **Dedupe first.** The link is turned into a job key. If the job is already known, scout shows it instead of adding it twice, and records that he wanted it.
+- **Filters warn instead of drop.** A job outside Canada, or with a term outside his window, shows the reason and asks once. The values filter and the citizen, PR and SWPP checks still need an explicit "add anyway", because those are the ones that cost him.
+- **Triage still runs, but never skips it.** It gives the score, the reasons and which resume to use.
+- **Two buttons.** "Add to list" keeps it on Jobs. "Add and apply" queues it, and if the Mac is awake the server reads the form and plans the answers within a minute, without waiting for the morning run. If the Mac is asleep, the morning run picks it up.
+- **The source is "you".** The job's `sources` records his link, so Stats can compare how his own picks do against scout's.
 
 ### Normalize, dedupe and filter
 
@@ -463,7 +493,7 @@ The daily pipeline stays on GitHub Actions. Finding and ranking jobs must not de
 | A stage changes | Firestore in one batch with its event, as before | Every client through its listener |
 | He answers, approves, pauses or stops | The Mac app calls `POST /commands`. The web and phone write `commands/{id}`. | The server checks the command against the stage machine and the permissions, sends it to the right workflow as a Temporal signal, and writes the result back on the command |
 
-Commands are `answer`, `approve`, `pause`, `resume`, `stop`, `retry`, `show_tab`, `start_next` and `set_workers`. At 20 applications a day the mirror adds about 1,500 writes, well inside the Spark plan's 20,000.
+Commands are `answer`, `approve`, `pause`, `resume`, `stop`, `retry`, `show_tab`, `start_next`, `set_workers` and `add_job`. At 20 applications a day the mirror adds about 1,500 writes, well inside the Spark plan's 20,000.
 
 ### Sessions: memory per application
 
@@ -571,7 +601,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 |---|---|---|
 | `profile/main` | Every fact about him that a form can ask for | One document, read once per run. |
 | `memory/{questionKey}` | Answers he gave before | The ID is a hash of the normalized question, so the same question always maps to one document. |
-| `jobs/{jobKey}` | A posting, its filter result and its triage | The ID comes from the posting, so collecting twice updates instead of duplicating. |
+| `jobs/{jobKey}` | A posting, its filter result and its triage. `sources` lists where it was found, including `you` with the link he pasted. | The ID comes from the posting, so collecting twice updates instead of duplicating. |
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
@@ -837,7 +867,7 @@ The sources are in `docs/diagrams/` as `.drawio` files. Open one at app.diagrams
 
 ## 10. Build order and open questions
 
-The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26 and #28 to #59: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
+The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26 and #28 to #60: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
 
 | Phase | What gets built | Done when |
 |---|---|---|
