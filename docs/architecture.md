@@ -8,7 +8,7 @@ Sashreek Addanki · November 5, 2026
 > the free-tier figures in section 6 against the live endpoints and pricing
 > pages on that date. Sashreek's review is pending.
 
-This page explains how scout is put together. scout finds internship and co-op postings in Canada, decides which ones fit, fills in the application on the company's own site from a profile of facts, and asks over the dashboard whenever it doesn't know an answer. Section 3 explains the architecture style and why it isn't one big AI agent. Section 7 follows one job from the daily run to "applied", so you can see every part working in one story. Section 9 is the practical part: where files live, what to name things and how to add a new job board.
+This page explains how scout is put together. scout finds internship and co-op postings in Canada, decides which ones fit, writes a one-page resume for each job from what it knows about Sashreek, fills in the application on the company's own site, and asks over the dashboard whenever it doesn't know an answer. It keeps learning about him the way a good assistant does: it remembers every fact, every correction and every decision he makes, with the reason, and never asks him the same thing twice. Section 3 explains the architecture style and why it isn't one big AI agent. Section 7 follows one job from the daily run to "applied", so you can see every part working in one story. Section 9 is the practical part: where files live, what to name things and how to add a new job board.
 
 `docs/PLAN.md` holds the first plan. Where the two differ, this file wins.
 
@@ -19,6 +19,7 @@ This page explains how scout is put together. scout finds internship and co-op p
 3. [Architecture style](#3-architecture-style)
 4. [Design decisions and why we made them](#4-design-decisions-and-why-we-made-them)
 5. [The parts](#5-the-parts)
+5b. [The knowledge base and per-job resumes](#5b-the-knowledge-base-and-per-job-resumes)
 6. [Data in Firebase](#6-data-in-firebase)
 7. [One job, front to back](#7-one-job-front-to-back)
 8. [When things go wrong](#8-when-things-go-wrong)
@@ -59,18 +60,21 @@ scout has to:
 - Find internship and co-op postings in Canada every day from public sources.
 - Drop the postings Sashreek can't or won't take, using rules he can read in code.
 - Rank the rest and say why.
+- Write a one-page resume for every application, tailored to the job description by the same rules used by hand today, and only from facts that are verified.
 - Fill in applications on Greenhouse, Lever and Ashby first, and on Workday later.
 - Give every factual answer a source in his profile or in an answer he gave before.
 - Ask him when it doesn't know, and never ask the same question twice.
 - Submit nothing he hasn't approved.
 - Track every application from "found" to "offer".
+- Keep learning about him: every correction, edit and decision is stored with its reason and applied from then on.
 
 scout will not:
 
 - Touch LinkedIn. LinkedIn's User Agreement bans automated access, and his main account is not worth the risk.
 - Create accounts on job sites. He creates Workday accounts himself.
 - Solve CAPTCHAs. A CAPTCHA hands the job to him.
-- Send a cover letter or essay answer he hasn't read.
+- Send a cover letter, essay answer or resume he hasn't approved.
+- Print a claim on a resume that isn't backed by a verified fact, unless he turns that on for one application on purpose.
 - Apply to more than the daily cap. It starts at 10.
 - Support more than one user.
 
@@ -109,11 +113,14 @@ interface Notifier   { send(message: Notice): Promise<void> }
 interface Llm        { triage(job: Job, profile: Profile): Promise<Triage>; plan(input: PlanInput): Promise<PlanResult> }
 ```
 
-**Why not one big agent?** One Claude agent with a browser could do all of this. It would also be slow, expensive and hard to test, and it would make different choices on different days. Most of scout's work is plain code: download a JSON file, match a city name, copy an email address into a field. Claude does the three jobs that need judgement:
+**Why not one big agent?** One Claude agent with a browser could do all of this. It would also be slow, expensive and hard to test, and it would make different choices on different days. Most of scout's work is plain code: download a JSON file, match a city name, copy an email address into a field. Claude does the four jobs that need judgement:
 
-1. Triage: does this posting fit him, and which resume goes with it?
-2. Answer planning: which profile fact answers "Are you legally eligible to work in Canada?", and what goes in "Why do you want to work here?"
-3. A fallback in the browser when a filler can't find a field on the page. Even then it may only type values from the approved sheet.
+1. Triage: does this posting fit him, and which side of his work should lead?
+2. Resume tailoring: which entries, bullets, titles and skill rows fit this job description, and how to reword a bullet in the job's vocabulary without changing what it claims.
+3. Answer planning: which profile fact answers "Are you legally eligible to work in Canada?", and what goes in "Why do you want to work here?"
+4. A fallback in the browser when a filler can't find a field on the page. Even then it may only type values from the approved sheet.
+
+Everything Claude writes is checked by code against the knowledge base before Sashreek sees it.
 
 ## 4. Design decisions and why we made them
 
@@ -136,6 +143,14 @@ interface Llm        { triage(job: Job, profile: Profile): Promise<Triage>; plan
 | The agent writes `submitAttemptAt` before it clicks Submit. | If it crashes between the click and the confirmation, a retry could apply twice. With the marker set, a retry goes to `needs_hand` and he checks his email first. |
 | Claude Opus 5.5 at low effort for triage, medium for planning, with server-side refusal fallback. | Triage is a short decision. Planning needs more care. Fallback reruns a refused request on another model in the same call, and the code still checks `stop_reason` before reading the answer. |
 | The stable part of every prompt is cached. | The instructions and his profile are the same on every call. Cache reads cost $0.20 per million tokens, against $4 for normal input. |
+| Every application gets its own resume, built from the active base resume by the rules in `rules.md`. | This is the process that already works by hand. scout automates it instead of inventing a new one. Fixed variants can't move a project up for one job or swap mint's SDK bullet for its observability bullet for an SRE posting. |
+| The knowledge base is modelled on the assistant memory used today: facts with sources, feedback with the reason, and dated decisions. | Facts alone aren't enough. "Never write '100% cited'" only stays fixed if the reason is stored with it, and "no dates on projects, his call" stops the same question coming back. |
+| The base resume is a setting, not a constant. | v6 is the base today and v7 is waiting. Bases are stored side by side, one is active, and switching is one action that shows exactly what changed. |
+| The knowledge base is seeded from `rules.md`, the memory files and the resume `.tex` files. | scout starts with everything already settled over months of review, not from zero. |
+| scout learns only what Sashreek confirms. | Every edit or correction becomes a suggested rule or bullet. Nothing becomes a fact or a rule until he accepts it, so the agent can't drift into claims he never made. |
+| A resume is rendered from a template, not written as free LaTeX by Claude. | Claude picks and rewords bullets. Code renders the `.tex` from the active base's preamble and macros, so the layout and fonts are always the same and every check can run on it. |
+| The pre-flight list from `rules.md` runs as code on every resume. | One page, line counts, bullet counts, bold spans, banned words, repeated verbs, never-print terms and number provenance are all checkable by a machine. The read-it-aloud test stays with him. |
+| Resume PDFs are stored in Firestore as base64, about 80 KB each. | It keeps scout on the free Spark plan. The agent uploads exactly the approved file and checks its hash. |
 | scout starts with an empty application history. | Past applications from before scout aren't imported. Sashreek decided this on November 5, 2026. |
 
 ## 5. The parts
@@ -173,7 +188,7 @@ One Claude call per new posting that passed the filters. The input is the postin
 | `decision` | `apply`, `maybe` or `skip` |
 | `score` | 0 to 100 |
 | `reasons` | Short lines he can read in the digest |
-| `resumeVariant` | Which resume to send: backend, ai or devops |
+| `lead` | Which side of his work should lead the resume: backend, ai or devops. The tailoring step uses it as a starting point. |
 | `flags` | Anything the code filters might have missed, like a citizenship clause in the body text |
 
 Postings scoring above `config/agent.autoQueueScore` go straight to `queued`. The rest wait in the dashboard for him to pick. For Workday and other boards without a public posting API, triage only has the title, company and location, and says so in its reasons.
@@ -193,7 +208,7 @@ Every reader returns the same `FormSpec`: a list of fields, each with an ID, lab
 
 The planner turns a `FormSpec` into an answer sheet in three passes:
 
-1. **Rules.** Name, email, phone, links, the resume upload and the common yes-or-no questions on work authorization come straight from the profile. No AI is used.
+1. **Rules.** Name, email, phone, links, the upload of this job's approved resume, and the common yes-or-no questions on work authorization come straight from the profile. No AI is used.
 2. **Memory.** Questions he has already answered are matched by their normalized text.
 3. **Claude.** Everything left goes to Claude with the form, the profile, the memory and the posting. Each answer comes back with its source and evidence. A factual answer must name the profile field it came from. If Claude can't ground an answer, the field becomes a question for him.
 
@@ -212,6 +227,8 @@ The agent is a small Node process on the Mac. Each loop it:
 7. Writes `submitAttemptAt`, clicks Submit, and waits for the board's confirmation page.
 8. Marks the application `applied`, logs the event and posts to Discord.
 
+The same Mac process also runs a small render worker. When he edits a resume in the dashboard, it re-renders, compiles and checks the new version with the tectonic already on his Mac.
+
 `config/agent.finalClick` decides step 7. With `auto`, the agent clicks Submit. With `hold`, it stops on the filled form and Sashreek clicks it himself.
 
 ### Dashboard
@@ -223,8 +240,9 @@ A Next.js app that reads Firestore directly with the Firebase web SDK and live l
 | Today | Open questions, sheets waiting for review, `needs_hand` items and assessment deadlines |
 | Board | One column per stage, one card per application |
 | Jobs | Triaged postings with their filter and triage reasons, and a button to queue one |
-| Application | The saved posting, the answer sheet with sources, the event history and notes |
+| Application | The saved posting, the tailored resume with its diff and sources, the answer sheet with sources, the event history and notes |
 | Profile | His facts and remembered answers, editable |
+| Knowledge | Facts, bullets, rules and decisions, the suggestions waiting for him, and the log of what changed |
 | Stats | Applications per week, response rate by source, board and resume version |
 
 ### Notifier
@@ -234,6 +252,88 @@ Discord gets four kinds of message: the daily digest, "questions waiting", "need
 ### Mail watcher
 
 Phase 3. It reads Gmail with read-only access and looks for mail from companies he applied to: assessment invites from CodeSignal or HackerRank, interview requests and rejections. Clear cases move the stage. Unclear ones become a question. It runs on the Mac next to the agent, because a Google OAuth app in "Testing" status gets refresh tokens that expire after 7 days. On the Mac he can sign in again in a few seconds.
+
+## 5b. The knowledge base and per-job resumes
+
+![Knowledge base and resume flow](images/resume-flow.png)
+
+scout has to know Sashreek the way a good assistant does after months of working with him: what he built, what each number means and where it came from, which wordings he fought for, what must never be printed, and why each of those calls was made. The knowledge base holds that, and every resume and every form answer is built from it.
+
+### What the knowledge base holds
+
+It is modelled on the memory the assistant keeps today, with the same four kinds of entry.
+
+| Kind | What it holds | Example |
+|---|---|---|
+| Fact | Something true about him, with a source and a status | mint cut `/validate` p99 from 17 to 10 ms. Source: `benchmarks/RESULTS.md`. Verified. |
+| Bullet | An approved resume wording, the facts it relies on, and where it fits | mint's SDK bullet, for backend and API jobs. mint's observability bullet, for SRE jobs. |
+| Rule | A constraint or a correction, always with the reason and how to apply it | Never "100% cited". It reads as an inflated metric before the reader reaches the mechanism. Say "an uncited claim cannot reach the report". |
+| Decision | A call he made, dated, so it is never re-argued | No dates on projects. His call, August 16, 2026. Do not re-propose. |
+
+Facts carry one of four statuses:
+
+| Status | Meaning | Printable |
+|---|---|---|
+| `verified` | Checked against a repo, benchmark, CI file or document | Yes |
+| `stated` | His own word about his own work, like Quantum Ops' 99.9% uptime | Yes, flagged "rehearse the source" on the review screen |
+| `coursework` | Learned in a course, like the AWS services in his Solutions Architect notes | Only in Technical Skills, never in a bullet |
+| `unverified` | Proposed but not checked yet | No |
+
+Rules come in three groups, all taken from `rules.md` on day one:
+
+- **Hard constraints** that code can check: one page, at most 4 bullets per entry, at most 2 lines per bullet with the spam-bot exception, no em dashes, 1 to 2 bold spans per bullet, no bolded technology names, no repeated opening verbs in a section, banned words, heading width.
+- **Must-survive items** that a tailored resume may reword or reorder but never drop, like the four deterministic stages bullet and the RAG clause in ClubMate.
+- **Never-print items** with the reason for each, like LangGraph on ClubMate, any average of Replay's per-class accuracy, and Latch's unbuilt crash-resume.
+
+### How it is seeded
+
+A one-time import reads three places and turns them into entries for him to confirm:
+
+1. `rules.md`, section by section: hard constraints, must-survive items, never-print items, the tailoring process and the Technical Skills standard.
+2. The memory files in `resume-eval-agent`: the verified numbers for mint, Replay, Latch, UAIS and Quantum Ops, the values filter, the unbacked-claims policy and his dated decisions.
+3. The base resumes in `Resumes/bases/` and the company variants: every `\resumeItem` becomes a bullet linked to the facts it states, with alternates kept side by side.
+
+Imported entries arrive as suggestions. He accepts them in batches on the Knowledge page, so the starting state is something he has read, not something scout assumed.
+
+### The base resume
+
+A base is a complete resume he has signed off: its LaTeX template, its bullets in order, and its skill rows. Every tailored resume starts from the active base.
+
+- Bases live in `kb/bases/items/{baseId}`, for example `v6` and `v7`, each with the `.tex` it came from.
+- One base is active at a time. It is set in Settings and shown on the Knowledge page.
+- Switching to a new base imports its bullets as suggestions and shows the diff against the current one: bullets added, cut, merged or reworded. For v6 to v7 that is the Replay testing cut, the new four-stages bullet, the merged mint bullet and the new observability bullet.
+- Switching never touches resumes already built. Each resume version records the base it came from.
+- Applications still in `planning` or `review` when the base changes get a fresh resume version from the new base, and the old version stays for comparison.
+
+### How a resume is built for one job
+
+This runs in the daily pipeline, next to answer planning, for every queued application.
+
+1. **Plan.** Claude Opus 5.5 at high effort reads the job description and the knowledge base. It returns a plan: which entries appear and in what order, an honest retitle if one fits, which bullets by ID, any rewording in the job's vocabulary, the skill rows named the way the job names them, and an availability line if the posting asks for one. Every reworded bullet keeps the fact IDs of the bullet it came from.
+2. **Render.** Code fills the active base's template with the plan. Claude never writes raw LaTeX.
+3. **Compile.** Tectonic builds the PDF. A small macro in the template writes each bullet's line count to the log, so line limits are measured, not estimated.
+4. **Check.** Code runs the pre-flight list from `rules.md`: one page by `pdfinfo`, line and bullet limits, bold spans, banned words, repeated verbs, must-survive items present, no never-print term, every number on the page found in a printable fact, no new overfull heading, and every link returning 200.
+5. **Fix or ask.** Failing checks go back to Claude with the reasons, up to three times. If it still fails, scout asks him a choice question instead of guessing, for example "The page runs 3 lines over. Drop one of these bullets."
+6. **Show.** The review screen gets the PDF, a diff against the base it was built from, and the source of every bullet. The sheet can't be approved until the resume is.
+
+Tailoring follows the rules in `rules.md` section 6: a job keyword earns its place by replacing a vaguer word, never by being appended, and a keyword that doesn't fit a bullet goes in the stack line or Technical Skills.
+
+**Unbacked claims are off by default.** For one application he can switch on "allow unbacked claims" with a reason, as he did for the Nutrien DevOps variant. Those bullets are marked on the review screen, the application is tagged "rehearse before a screen", and nothing from it ever becomes a fact.
+
+### How it keeps learning
+
+| He does this | scout stores | Used from then on |
+|---|---|---|
+| Edits a bullet before approving | The new wording as an alternate bullet, tagged with the kind of job | Offered for similar jobs |
+| Makes the same kind of edit twice, like "Built" to "Led" | A suggested rule, with the two edits as the reason | After he accepts it, applied to every resume |
+| Rejects a claim | A never-print rule with his words as the reason | Checked by code on every resume |
+| Settles a question, like "keep one title across variants" | A dated decision | Never asked again |
+| Adds a new fact, like a Latch benchmark | An `unverified` fact with a source link | Printable once he marks it verified |
+| Gets replies from some resumes and not others | Reply rate per bullet and per entry | Shown to the planner as a soft preference, never a rule |
+
+Nothing is learned silently. Suggestions wait on the Knowledge page until he accepts or dismisses them, and every change to the knowledge base is logged with who made it and why.
+
+**`rules.md` stays the human-readable view.** The knowledge base exports back to Markdown, so the resume advisor and Sashreek can still read the rules in one file.
 
 ## 6. Data in Firebase
 
@@ -250,6 +350,15 @@ Phase 3. It reads Gmail with read-only access and looks for mail from companies 
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
 | `runs/{runId}` | One pipeline or agent run, with counts and errors | The dashboard shows when a source failed. |
+| `kb/bases/items/{baseId}` | A base resume: template, bullets in order, skill rows, the source `.tex`, and whether it is active | Switching the active base is one write, and each resume records which base it used. |
+| `kb/facts/items/{factId}` | A fact about him: claim, numbers, source, status, entry it belongs to | Status decides whether it can be printed. |
+| `kb/bullets/items/{bulletId}` | An approved resume wording, its fact IDs, its entry, the kinds of job it suits, its measured line count | Alternates for the same entry sit side by side. |
+| `kb/rules/items/{ruleId}` | A constraint, must-survive item or never-print item, with the reason and how to apply it | Code checks every resume against these. |
+| `kb/decisions/items/{decisionId}` | A call he made, dated, with his words | The planner reads these so settled questions stay settled. |
+| `kb/suggestions/items/{id}` | Something scout learned but he hasn't confirmed: a new rule, bullet or fact | The Knowledge page lists these for accept or dismiss. |
+| `kb/log/items/{id}` | Every change to the knowledge base: what, who, why | So he can see how scout's picture of him changed. |
+| `applications/{jobKey}/resume/{version}` | The base it came from, the plan, the rendered `.tex`, the PDF as base64, check results, the diff against that base, and approval | Each edit makes a new version. The agent uploads the approved one and checks its hash. |
+| `renderRequests/{id}` | A request to re-render a resume after he edits it | The render worker on his Mac picks these up. |
 | `config/agent` | `paused`, `dailyCap`, `finalClick`, `autoQueueScore`, `maxTriagePerRun` | He can pause scout from his phone. |
 | `counters/{date}` | Applications submitted that day | The claim transaction checks it against `dailyCap`. |
 
@@ -290,9 +399,10 @@ The Claude API is not free. This is an estimate, not a measurement:
 |---|---|---|---|
 | Triage | 15 to 30 new postings a day after the code filters | 1,500 new input, 3,000 cached, 500 output | About $8 to $15 |
 | Answer planning | 5 to 10 applications a day | 6,000 input, 1,500 output | About $8 to $17 |
+| Resume tailoring | 5 to 10 applications a day, up to 3 tries each | 4,000 new input, 20,000 cached knowledge base, 3,000 output | About $15 to $35 |
 | Browser fallback | Rare | Varies | Small |
 
-That makes about $15 to $35 a month at full use, plus about $5 once for the first backlog. If that is too much, the levers are Claude Haiku 5.5 for triage, at $0.10 per million input tokens, or the Batches API at half price, since triage doesn't need an answer right away. Set a monthly spend limit in the Anthropic Console either way.
+That makes about $30 to $70 a month at full use, plus about $5 once for the first backlog. Tailoring is the biggest line, because it runs at high effort. If that is too much, the levers are Claude Haiku 5.5 for triage, at $0.10 per million input tokens, or the Batches API at half price, since triage doesn't need an answer right away. Set a monthly spend limit in the Anthropic Console either way.
 
 Setup steps:
 
@@ -311,7 +421,9 @@ Northwind Robotics, a made-up company with a Greenhouse board, posts a Software 
 
 ![Sequence diagram: the daily run](images/daily-run.png)
 
-At 7:00 the pipeline downloads both GitHub lists and polls the boards it knows. The Northwind posting is new, it's in Canada, it's a software role, the term matches, and Northwind isn't on the excluded list. So it reaches triage, which returns `apply` with a score of 82 and picks the backend resume. That is above the auto-queue score, so the application goes to `queued`.
+At 7:00 the pipeline downloads both GitHub lists and polls the boards it knows. The Northwind posting is new, it's in Canada, it's a software role, the term matches, and Northwind isn't on the excluded list. So it reaches triage, which returns `apply` with a score of 82 and says his backend work should lead. That is above the auto-queue score, so the application goes to `queued`.
+
+The tailoring step builds Northwind's resume from the active base, v6. The posting asks for Go, Kubernetes, Prometheus and Grafana. Kubernetes has no project behind it, so no bullet claims it, though it stays in Technical Skills as it is in v6. mint moves above Replay, and mint's observability bullet replaces the SDK bullet because the job is platform reliability. Two bullets are reworded to use "platform" where they said "service". The page compiles to exactly one page and every check passes on the first try.
 
 The pipeline reads the form from Greenhouse's API. It has 14 fields:
 
@@ -326,9 +438,9 @@ The application moves to `needs_answers`, and the digest tells him one question 
 
 ![Sequence diagram: answering, approving and applying](images/apply.png)
 
-He answers "Yes" on his phone and ticks "remember", so no form will ask him that again. With no questions left, the application moves to `review`. He reads the sheet, rewrites one sentence of the essay and taps Approve.
+He answers "Yes" on his phone and ticks "remember", so no form will ask him that again. With no questions left, the application moves to `review`. He opens the resume tab, sees the diff against v6 and the source of each bullet, and changes "Built 2 Grafana dashboards" to "Tracked reliability on 2 Grafana dashboards". scout saves that wording as an alternate bullet for platform jobs. He approves the resume, rewrites one sentence of the essay and approves the sheet.
 
-That evening he starts the agent on his Mac. It claims the application, opens the form, fills it, attaches the backend resume, reads every value back and submits. Greenhouse shows its confirmation page, the stage becomes `applied`, and Discord says "Applied: Northwind Robotics".
+That evening he starts the agent on his Mac. It claims the application, opens the form, fills it, attaches Northwind's approved resume after checking its hash, reads every value back and submits. Greenhouse shows its confirmation page, the stage becomes `applied`, and Discord says "Applied: Northwind Robotics".
 
 If the form had changed since the morning, with a new required field, the agent would have stopped before submitting and sent the application back to `needs_answers` with a new question.
 
@@ -336,7 +448,7 @@ If the form had changed since the morning, with a new required field, the agent 
 
 Two weeks later a CodeSignal invite arrives. In phase 3 the mail watcher matches it to the Northwind application and moves it to `assessment` with the deadline from the email. Until then he moves it himself on the board.
 
-Across the three steps, Claude made two decisions and drafted one paragraph. Everything else was plain code he can test, and nothing was submitted without his approval.
+Across the three steps, Claude made two decisions, tailored one resume and drafted one paragraph. Everything else was plain code he can test, and nothing was submitted without his approval.
 
 ## 8. When things go wrong
 
@@ -349,6 +461,9 @@ Across the three steps, Claude made two decisions and drafted one paragraph. Eve
 | The browser or the Mac crashes mid-fill | The lease runs out and the application goes back to `approved`. Nothing was submitted, because Submit is the last step. |
 | A crash between clicking Submit and seeing the confirmation | `submitAttemptAt` is set, so a retry goes to `needs_hand` instead of submitting again. He checks his email and confirms. |
 | Claude refuses or errors | Fallback reruns a refused call on another model. If the final answer is still a refusal, or the API errors after the SDK's retries, the job stays untriaged for the next run. |
+| A tailored resume won't fit on one page | Claude gets three tries with the failing checks. Then he gets a choice question listing the bullets that could go. |
+| A resume uses a number with no printable fact behind it | The check fails, the number is named, and that version can't be approved. |
+| He edits a resume while his Mac is off | The re-render waits in `renderRequests` until the Mac worker or the next daily run picks it up. |
 | scout misbehaves | He sets `paused` in the dashboard. The agent checks it before every claim. |
 
 ## 9. Working in the codebase
@@ -376,6 +491,8 @@ scout/
 │   │   ├── filters.ts             Canada, role, term, values, eligibility, already applied
 │   │   ├── keys.ts                job keys and content hashes
 │   │   ├── planner.ts             the rules and memory passes of the answer planner
+│   │   ├── resume/                plan schema, template renderer, the pre-flight checks
+│   │   ├── kb/                    knowledge base schemas, matching, suggestion rules
 │   │   └── ports.ts               JobSource, FormReader, FormFiller, Store, Notifier, Llm
 │   ├── adapters/                  code that talks to the outside world
 │   │   ├── sources/               GitHubListSource, GreenhouseSource, LeverSource, AshbySource
@@ -383,9 +500,10 @@ scout/
 │   │   ├── store/                 FirestoreStore
 │   │   ├── notify/                DiscordNotifier
 │   │   └── llm/                   ClaudeTriage, ClaudePlanner
-│   └── testkit/                   InMemoryStore, FakeLlm, saved feeds and forms
+│   └── testkit/                   InMemoryStore, FakeLlm, saved feeds, forms and job descriptions
 ├── firebase/                      firestore.rules, firestore.indexes.json, firebase.json
 ├── profile/                       seed files, imported into Firestore once
+├── resume/                        base resume templates and the knowledge base seed importer
 ├── sources/                       sources.yaml and boards.yaml
 ├── .github/workflows/             daily.yml runs the pipeline, ci.yml runs the tests
 └── docs/                          this file, PLAN.md, diagrams/ (draw.io sources), images/ (PNGs)
@@ -460,7 +578,7 @@ The backend is broken into user stories with acceptance criteria, as GitHub issu
 |---|---|---|
 | 0 | Repo layout, schemas, profile import, Firebase project and rules | `profile/main` is in Firestore and he has checked every field |
 | 1 | Sources, filters, triage, the daily digest, the dashboard's Jobs, Board and Profile pages | A week of digests where he agrees with the picks |
-| 2 | Greenhouse and Lever readers, the planner, the questions flow, the agent with Greenhouse and Lever fillers, `finalClick: hold` | 10 real applications with no wrong answers |
+| 2 | Knowledge base and its seed import, per-job resumes with checks, the Knowledge page, Greenhouse and Lever readers, the planner, the questions flow, the agent with Greenhouse and Lever fillers, `finalClick: hold` | 10 real applications with no wrong answers, each with a tailored resume he approved without rewriting more than one bullet |
 | 3 | Ashby, then Workday with accounts he creates, the mail watcher, Stats | 10 more with no wrong answers, and stages that update from email |
 | 4 | `finalClick: auto` for boards with a clean record, more boards | His call after reading the phase 3 logs |
 
@@ -471,3 +589,5 @@ Open questions:
 3. Should the daily cap stay at 10?
 4. For the mail watcher: sign in again every 7 days, or publish the Google OAuth app as an unverified personal app?
 5. Is he already registered in the Science Internship Program? Some forms ask, and the profile needs the answer.
+6. Should v7 become the active base before the knowledge base is seeded? Switching later is supported either way.
+7. Should cover letters use the same knowledge base and checks in a later phase?
