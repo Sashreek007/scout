@@ -1,6 +1,8 @@
 import {
   AlreadyExistsError,
   ApplicationSchema,
+  assertFirstEvent,
+  assertKeepsStage,
   JobSchema,
   MemoryEntrySchema,
   NotFoundError,
@@ -8,6 +10,8 @@ import {
   QuestionSchema,
   RunSchema,
   StageEventSchema,
+  StaleStageError,
+  moveStage,
   type Application,
   type ApplicationPatch,
   type Job,
@@ -24,9 +28,6 @@ import { settle } from './settle';
 function copy<T>(value: T): T {
   return structuredClone(value);
 }
-
-/** Fields only the stage machine may change (#2). */
-const STAGE_FIELDS = ['jobKey', 'stage', 'stageAt', 'createdAt'] as const;
 
 /**
  * The `Store` port in memory. It checks every write against the same schemas as the Firestore
@@ -58,11 +59,7 @@ export class InMemoryStore implements Store {
       settle(() => {
         const parsed = ApplicationSchema.parse(app);
         const first = StageEventSchema.parse(event);
-        if (first.from !== null || first.to !== parsed.stage) {
-          throw new Error(
-            `the first event must go from nothing to ${parsed.stage}, got ${String(first.from)} to ${first.to}`,
-          );
-        }
+        assertFirstEvent(parsed.stage, first);
         if (this.#applications.has(parsed.jobKey)) {
           throw new AlreadyExistsError('applications', parsed.jobKey);
         }
@@ -71,11 +68,7 @@ export class InMemoryStore implements Store {
       }),
     update: (key, patch: ApplicationPatch) =>
       settle(() => {
-        for (const field of STAGE_FIELDS) {
-          if (field in patch) {
-            throw new Error(`${field} can't be changed with update; stages move through moveStage`);
-          }
-        }
+        assertKeepsStage(patch);
         const current = this.#applications.get(key);
         if (!current) throw new NotFoundError('applications', key);
         this.#applications.set(key, ApplicationSchema.parse({ ...current, ...patch }));
@@ -88,6 +81,20 @@ export class InMemoryStore implements Store {
       ),
     events: (key) => settle(() => (this.#events.get(key) ?? []).map(copy)),
   };
+
+  // JavaScript runs this check and write without a break, so it is atomic like a transaction.
+  moveStage: Store['moveStage'] = (key, move) =>
+    settle(() => {
+      const current = this.#applications.get(key);
+      if (!current) throw new NotFoundError('applications', key);
+      if (current.stage !== move.from) throw new StaleStageError(key, move.from, current.stage);
+      const moved = moveStage(current, move.to, move.by, move.detail ?? null, move.at);
+      const app = ApplicationSchema.parse(moved.app);
+      const event = StageEventSchema.parse(moved.event);
+      this.#applications.set(key, app);
+      this.#events.get(key)?.push(event);
+      return { app: copy(app), event: copy(event) };
+    });
 
   readonly questions: Store['questions'] = {
     get: (id) => settle(() => copy(this.#questions.get(id) ?? null)),
