@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Software Developer Intern (Winter 2027) at Northwind Robotics</title>
+  </head>
+  <body>
+    <h1>Software Developer Intern (Winter 2027)</h1>
+    <p>Northwind Robotics · Toronto, ON, Canada</p>
+    <form id="application-form" action="/northwind/jobs/4100001/thanks" method="get">
+      <label for="first_name">First Name *</label>
+      <input id="first_name" name="first_name" type="text" required />
+
+      <label for="last_name">Last Name *</label>
+      <input id="last_name" name="last_name" type="text" required />
+
+      <label for="email">Email *</label>
+      <input id="email" name="email" type="email" required />
+
+      <label for="phone">Phone *</label>
+      <input id="phone" name="phone" type="tel" required />
+
+      <label for="resume">Resume/CV *</label>
+      <input id="resume" name="resume" type="file" required />
+
+      <label for="question_1001">Are you legally eligible to work in Canada? *</label>
+      <select id="question_1001" name="question_1001" required>
+        <option value="">Select...</option>
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+
+      <label for="question_1002">Why Northwind?</label>
+      <textarea id="question_1002" name="question_1002" maxlength="1000"></textarea>
+
+      <label for="question_1003">Are you available for in-person interviews in Toronto? *</label>
+      <select id="question_1003" name="question_1003" required>
+        <option value="">Select...</option>
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+
+      <button type="submit">Submit application</button>
+    </form>
+  </body>
+</html>

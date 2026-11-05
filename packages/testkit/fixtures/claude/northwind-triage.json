@@ -1,0 +1,11 @@
+{
+  "match": { "contains": ["Northwind Robotics", "Software Developer Intern"] },
+  "response": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"decision\":\"apply\",\"score\":82,\"reasons\":[\"Backend internship in Toronto for Winter 2027\",\"Go and observability match mint\",\"No citizenship clause\"],\"lead\":\"backend\",\"flags\":[]}"
+      }
+    ]
+  }
+}

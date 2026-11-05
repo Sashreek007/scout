@@ -1,0 +1,17 @@
+{
+  "name": "@scout/testkit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fakes for tests and local dev: InMemoryStore, FakeLlm, the fake job board, the fake Claude API and saved fixtures.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@scout/core": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "vitest": "5.0.5"
+  }
+}
