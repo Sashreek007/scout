@@ -33,7 +33,7 @@ scout runs in four places. A daily job in GitHub Actions finds and ranks posting
 
 | Where | What runs there | When |
 |---|---|---|
-| GitHub Actions | The pipeline: collect, filter, triage, read forms, plan answers, send the digest | Once a day at 7:00 Edmonton time |
+| GitHub Actions | The pipeline: collect, filter, triage, read forms, plan answers, send the digest | Once a day at 14:00 UTC, which is 7:00 in Edmonton in winter and 8:00 in summer |
 | Firebase | Firestore with every job, application, question and the profile. Auth for the dashboard. | Always on |
 | Vercel | The dashboard | Always on |
 | Sashreek's Mac | The agent: fills approved applications in Chrome | When he starts it, or on a launchd schedule |
@@ -136,7 +136,7 @@ interface Llm        { triage(job: Job, profile: Profile): Promise<Triage>; plan
 | The agent writes `submitAttemptAt` before it clicks Submit. | If it crashes between the click and the confirmation, a retry could apply twice. With the marker set, a retry goes to `needs_hand` and he checks his email first. |
 | Claude Opus 5.5 at low effort for triage, medium for planning, with server-side refusal fallback. | Triage is a short decision. Planning needs more care. Fallback reruns a refused request on another model in the same call, and the code still checks `stop_reason` before reading the answer. |
 | The stable part of every prompt is cached. | The instructions and his profile are the same on every call. Cache reads cost $0.20 per million tokens, against $4 for normal input. |
-| His existing tracker is imported on day one. | `~/Documents/resume-eval-agent/applications.md` lists every application since August 2026. Importing it stops scout from applying to those postings again. |
+| scout starts with an empty application history. | Past applications from before scout aren't imported. Sashreek decided this on November 5, 2026. |
 
 ## 5. The parts
 
@@ -154,7 +154,7 @@ Checked live on November 5, 2026.
 
 About 134 postings are in both GitHub lists, so together they hold roughly 520 unique Canadian postings. The vansh list uses short links that the collector has to follow to find the real apply URL.
 
-The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. The collector adds new tokens to `sources/boards.yaml` and polls those boards from then on, so scout sees new postings before the lists do.
+The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's listings or already stored on a job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
 
 ### Normalize, dedupe and filter
 
@@ -248,9 +248,9 @@ Phase 3. It reads Gmail with read-only access and looks for mail from companies 
 | `jobs/{jobKey}` | A posting, its filter result and its triage | The ID comes from the posting, so collecting twice updates instead of duplicating. |
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. |
-| `questions/{questionId}` | One question for one field of one application | The Today page lists these. Answering one also writes to `memory` when he ticks "remember". |
+| `questions/{questionId}` | One question for one field of one application, with `status` open or answered | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
 | `runs/{runId}` | One pipeline or agent run, with counts and errors | The dashboard shows when a source failed. |
-| `config/agent` | `paused`, `dailyCap`, `finalClick`, `autoQueueScore` | He can pause scout from his phone. |
+| `config/agent` | `paused`, `dailyCap`, `finalClick`, `autoQueueScore`, `maxTriagePerRun` | He can pause scout from his phone. |
 | `counters/{date}` | Applications submitted that day | The claim transaction checks it against `dailyCap`. |
 
 Conventions:
@@ -454,10 +454,12 @@ The sources are in `docs/diagrams/` as `.drawio` files. Open one at app.diagrams
 
 ## 10. Build order and open questions
 
+The backend is broken into user stories with acceptance criteria, as GitHub issues #1 to #26. Issue #27 is the roadmap that tracks them by phase.
+
 | Phase | What gets built | Done when |
 |---|---|---|
 | 0 | Repo layout, schemas, profile import, Firebase project and rules | `profile/main` is in Firestore and he has checked every field |
-| 1 | Sources, filters, triage, the daily digest, the dashboard's Jobs, Board and Profile pages, the tracker import | A week of digests where he agrees with the picks |
+| 1 | Sources, filters, triage, the daily digest, the dashboard's Jobs, Board and Profile pages | A week of digests where he agrees with the picks |
 | 2 | Greenhouse and Lever readers, the planner, the questions flow, the agent with Greenhouse and Lever fillers, `finalClick: hold` | 10 real applications with no wrong answers |
 | 3 | Ashby, then Workday with accounts he creates, the mail watcher, Stats | 10 more with no wrong answers, and stages that update from email |
 | 4 | `finalClick: auto` for boards with a clean record, more boards | His call after reading the phase 3 logs |
