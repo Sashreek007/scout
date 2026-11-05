@@ -47,7 +47,7 @@ current_role:
   title: Your Title
   start: Mon. YYYY
 
-resumes:
+resumes:  # each a path to a PDF: absolute, ~/..., or relative to this file
   default: TODO  # path to PDF
   backend: TODO
   ai: TODO

@@ -17,7 +17,8 @@
     "test:watch": "vitest --project unit",
     "dev": "firebase emulators:exec --config firebase/firebase.json --project demo-scout --only firestore,auth --ui \"tsx scripts/dev.ts\"",
     "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-scout --only firestore,auth",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "scout": "tsx apps/pipeline/src/cli.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

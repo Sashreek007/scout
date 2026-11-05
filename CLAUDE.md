@@ -10,16 +10,18 @@ Read before changing anything:
 
 ## Commands
 
-| Command                                      | Does                                                                                                                                                                         |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm install`                               | Installs the workspace. Node 24 (`.nvmrc`), pnpm 10.                                                                                                                         |
-| `pnpm check`                                 | Type check, ESLint, Prettier check, then every Vitest suite under the Firestore emulator with coverage. **CI runs exactly this.** Needs Java 21 or newer for the emulator.   |
-| `pnpm test:unit`                             | Unit tests only, no emulator. The fast loop.                                                                                                                                 |
-| `pnpm test:watch`                            | Unit tests in watch mode.                                                                                                                                                    |
-| `pnpm test`                                  | Every suite, unit and `*.emulator.test.ts`, inside `firebase emulators:exec`. Fails if `packages/core` drops below 90% of lines.                                             |
-| `pnpm dev`                                   | Firestore and Auth emulators on `demo-scout` with seed data, the Emulator UI on :4000, the fake job board on :4318 and the fake Claude API on :4319. Ctrl-C stops all of it. |
-| `pnpm emulators`                             | Only the Firestore and Auth emulators, empty, with the rules in `firebase/`.                                                                                                 |
-| `pnpm lint`, `pnpm typecheck`, `pnpm format` | One piece of `pnpm check` each; `format` rewrites files.                                                                                                                     |
+| Command                                      | Does                                                                                                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                               | Installs the workspace. Node 24 (`.nvmrc`), pnpm 10.                                                                                                                            |
+| `pnpm check`                                 | Type check, ESLint, Prettier check, then every Vitest suite under the Firestore emulator with coverage. **CI runs exactly this.** Needs Java 21 or newer for the emulator.      |
+| `pnpm test:unit`                             | Unit tests only, no emulator. The fast loop.                                                                                                                                    |
+| `pnpm test:watch`                            | Unit tests in watch mode.                                                                                                                                                       |
+| `pnpm test`                                  | Every suite, unit and `*.emulator.test.ts`, inside `firebase emulators:exec`. Fails if `packages/core` drops below 90% of lines.                                                |
+| `pnpm dev`                                   | Firestore and Auth emulators on `demo-scout` with seed data, the Emulator UI on :4000, the fake job board on :4318 and the fake Claude API on :4319. Ctrl-C stops all of it.    |
+| `pnpm emulators`                             | Only the Firestore and Auth emulators, empty, with the rules in `firebase/`.                                                                                                    |
+| `pnpm scout profile push [--dry-run]`        | Checks `profile/profile.yaml` and `profile/answers.yaml` and writes what changed to `profile/main` and `memory/`. Lists every problem and writes nothing if any field is wrong. |
+| `pnpm scout profile pull`                    | Writes the profile in Firestore back to `profile/profile.yaml`.                                                                                                                 |
+| `pnpm lint`, `pnpm typecheck`, `pnpm format` | One piece of `pnpm check` each; `format` rewrites files.                                                                                                                        |
 
 ## Where things go
 

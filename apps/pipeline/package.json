@@ -5,10 +5,16 @@
   "type": "module",
   "description": "The daily job GitHub Actions runs: collect, filter, triage, plan, digest.",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "scout": "tsx src/cli.ts"
   },
   "dependencies": {
     "@scout/adapters": "workspace:*",
-    "@scout/core": "workspace:*"
+    "@scout/core": "workspace:*",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@scout/testkit": "workspace:*"
   }
 }
