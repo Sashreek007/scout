@@ -145,11 +145,13 @@ export function assertFirstEvent(stage: Stage, event: StageEvent): void {
 }
 
 /**
- * The document ID of an event under `applications/{jobKey}/events/`. It starts with the ISO time,
- * so IDs sort in the order the moves happened, and names the move so the console is readable.
+ * The document ID of an event under `applications/{jobKey}/events/`: the move's time in
+ * milliseconds, then the move, like `1793887260000_queued_planning`. Milliseconds stay 13 digits
+ * until the year 2286, so IDs sort in the order the moves happened, and the security rules can
+ * build the same ID from a timestamp to check that a stage change wrote its event (#3).
  */
 export function eventId(event: StageEvent): string {
-  return `${event.at.toISOString()}_${event.from ?? 'new'}_${event.to}`;
+  return `${String(event.at.getTime())}_${event.from ?? 'new'}_${event.to}`;
 }
 
 /** Application fields only the stage machine and creation set. `update` refuses them. */

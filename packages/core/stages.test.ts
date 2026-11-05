@@ -222,8 +222,8 @@ describe('eventId', () => {
       at: new Date(AT.getTime() + 1),
       detail: null,
     });
-    expect(created).toBe('2026-11-05T20:00:00.000Z_new_queued');
+    expect(created).toBe(`${AT.getTime()}_new_queued`);
     expect(later > created).toBe(true);
-    expect(later).toBe('2026-11-05T20:00:00.001Z_queued_planning');
+    expect(later).toBe(`${AT.getTime() + 1}_queued_planning`);
   });
 });

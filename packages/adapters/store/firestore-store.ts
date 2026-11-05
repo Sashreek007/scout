@@ -98,7 +98,7 @@ export class FirestoreStore implements Store {
       return snap.docs.map((doc) => ApplicationSchema.parse(fromFirestore(doc.data())));
     },
     events: async (key) => {
-      // Event IDs start with the ISO time, so document order is the order of the moves.
+      // Event IDs start with the time in milliseconds, so document order is the order of the moves.
       const snap = await this.#events(key).get();
       return snap.docs.map((doc) => StageEventSchema.parse(fromFirestore(doc.data())));
     },
