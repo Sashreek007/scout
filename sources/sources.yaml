@@ -1,0 +1,16 @@
+# Job sources scout polls. Verified working 2026-11-05.
+github_lists:
+  - repo: SimplifyJobs/Summer2027-Internships
+    path: .github/scripts/listings.json
+    branch: dev
+    term_field: terms
+  - repo: vanshb03/Summer2027-Internships
+    path: .github/scripts/listings.json
+    branch: dev
+    term_field: season
+    resolve_short_links: true
+
+ats_feeds:
+  greenhouse: https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true
+  lever: https://api.lever.co/v0/postings/{token}?mode=json
+  ashby: https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true

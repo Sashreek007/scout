@@ -1,0 +1,9 @@
+.env
+*.env
+browser-profile/
+runs/
+screenshots/
+__pycache__/
+node_modules/
+*.sqlite
+profile/profile.yaml

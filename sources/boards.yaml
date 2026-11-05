@@ -1,0 +1,4 @@
+# Company board tokens. scout appends to this from GitHub listing URLs; add companies by hand too.
+greenhouse: [tribalscale]
+lever: [eqbank]
+ashby: [cohere]

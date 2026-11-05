@@ -1,0 +1,65 @@
+# Template. Copy to profile.yaml (gitignored) and fill in real values. Every form answer comes from here.
+# TODO = he must fill or confirm. Nothing here is guessed for him.
+
+identity:
+  full_name: Your Name
+  email: you@example.com
+  phone: TODO
+  city: City, Province, Canada
+  pronouns: TODO  # leave blank to skip the field
+
+links:
+  linkedin: TODO
+  github: https://github.com/you
+  portfolio: https://your-site.example
+
+education:
+  school: Your University
+  degree: Your Degree
+  year_of_study: 0
+  expected_graduation: TODO
+  gpa: TODO  # only if he wants it given
+
+work_authorization:
+  status: Describe your status
+  citizenship: TODO
+  requires_sponsorship_for_coop: false
+  canadian_citizen_or_pr: false
+  internship_program: Your co-op / internship program
+  sip_registered: TODO
+  us_work_authorized: false  # confirm
+
+availability:
+  earliest_start: TODO  # e.g. January 2027
+  term_lengths_ok: [4, 8, 12]  # months, confirm
+  relocation:
+    edmonton: yes
+    calgary: TODO
+    toronto: TODO
+    vancouver: TODO
+    remote: yes
+
+compensation:
+  expected_hourly_cad: TODO
+
+current_role:
+  company: Company
+  title: Your Title
+  start: Mon. YYYY
+
+resumes:
+  default: TODO  # path to PDF
+  backend: TODO
+  ai: TODO
+  devops: TODO
+
+demographics:  # voluntary EEO questions
+  policy: decline_to_answer  # or fill each one explicitly
+
+filters:
+  excluded_sectors: [defence, weapons, surveillance, policing-data]
+  excluded_employers: [Palantir, Thales, CAE, General Dynamics, Lockheed Martin, MDA, Calian]
+  skip_if_requires: [canadian_citizenship, permanent_residence, SWPP, FSWEP]
+  location: canada_only
+  target_roles: [software engineering intern, co-op, AI/ML intern, DevOps intern]
+  daily_cap: 10
