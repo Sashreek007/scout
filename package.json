@@ -16,6 +16,7 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "dev": "firebase emulators:exec --config firebase/firebase.json --project demo-scout --only firestore,auth --ui \"tsx scripts/dev.ts\"",
+    "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-scout --only firestore,auth",
     "commitlint": "commitlint"
   },
   "devDependencies": {

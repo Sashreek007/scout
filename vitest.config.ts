@@ -10,7 +10,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['{apps,packages,scripts}/**/*.test.ts', '*.test.ts'],
+          include: ['{apps,packages,scripts,firebase}/**/*.test.ts', '*.test.ts'],
           exclude: [...shared.exclude, '**/*.emulator.test.ts'],
         },
       },

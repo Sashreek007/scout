@@ -18,6 +18,7 @@ Read before changing anything:
 | `pnpm test:watch`                            | Unit tests in watch mode.                                                                                                                                                    |
 | `pnpm test`                                  | Every suite, unit and `*.emulator.test.ts`, inside `firebase emulators:exec`. Fails if `packages/core` drops below 90% of lines.                                             |
 | `pnpm dev`                                   | Firestore and Auth emulators on `demo-scout` with seed data, the Emulator UI on :4000, the fake job board on :4318 and the fake Claude API on :4319. Ctrl-C stops all of it. |
+| `pnpm emulators`                             | Only the Firestore and Auth emulators, empty, with the rules in `firebase/`.                                                                                                 |
 | `pnpm lint`, `pnpm typecheck`, `pnpm format` | One piece of `pnpm check` each; `format` rewrites files.                                                                                                                     |
 
 ## Where things go
