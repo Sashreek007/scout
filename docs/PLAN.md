@@ -120,7 +120,7 @@ collect ──> normalize + dedupe ──> hard filters ──> triage (Claude) 
   General Dynamics postings are already in the Canadian list today.
 - **Eligibility:** skip postings that need Canadian citizenship or PR, or that are SWPP or FSWEP funded.
 - **Already seen or applied:** skip.
-- **Volume:** daily apply cap, starting at 10.
+- **Volume:** daily apply cap, 20 by default, can be raised or turned off.
 
 ## 7. Application tracker (CRM)
 
