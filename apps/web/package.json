@@ -1,0 +1,10 @@
+{
+  "name": "@scout/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Next.js dashboard. The app itself arrives with the dashboard shell story (#42).",
+  "dependencies": {
+    "@scout/core": "workspace:*"
+  }
+}

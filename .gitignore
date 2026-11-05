@@ -13,3 +13,11 @@ design/figma/*.html
 design/figma/swap*.js
 design/diagrams/urls/
 design/diagrams/go_*.html
+
+# tooling
+coverage/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.tsbuildinfo

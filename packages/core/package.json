@@ -1,0 +1,13 @@
+{
+  "name": "@scout/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Plain code with no network: schemas, the stage machine, filters, keys and ports.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

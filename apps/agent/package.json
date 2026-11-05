@@ -1,0 +1,14 @@
+{
+  "name": "@scout/agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The scout server on the Mac: event hub, commands, the Temporal supervisor and agents, fillers.",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@scout/adapters": "workspace:*",
+    "@scout/core": "workspace:*"
+  }
+}
