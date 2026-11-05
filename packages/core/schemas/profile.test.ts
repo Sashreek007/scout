@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validProfile } from './examples.fixture';
-import { isTodo, ProfileSchema } from './profile';
+import { isTodo, ProfileFileSchema, ProfileSchema } from './profile';
 
 function issues(input: unknown) {
   const result = ProfileSchema.safeParse(input);
@@ -65,5 +65,29 @@ describe('isTodo', () => {
     expect(isTodo(' todo ')).toBe(true);
     expect(isTodo('To do the thing')).toBe(false);
     expect(isTodo(null)).toBe(false);
+  });
+});
+
+describe('ProfileFileSchema', () => {
+  const file = {
+    ...validProfile,
+    resumes: { default: 'resumes/default.pdf', backend: 'TODO', ai: null, devops: null },
+  };
+
+  it('takes each resume as a path, as profile.yaml has it', () => {
+    expect(ProfileFileSchema.parse(file).resumes).toEqual({
+      default: 'resumes/default.pdf',
+      backend: 'TODO',
+      ai: null,
+      devops: null,
+    });
+  });
+
+  it('still rejects TODO in a required field, and unknown keys', () => {
+    const unfinished = { ...file, resumes: { ...file.resumes, default: 'TODO' } };
+    expect(ProfileFileSchema.safeParse(unfinished).error?.issues[0]?.message).toBe(
+      'TODO is not allowed',
+    );
+    expect(ProfileFileSchema.safeParse({ ...file, extra: 1 }).success).toBe(false);
   });
 });

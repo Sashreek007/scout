@@ -17,3 +17,15 @@ export const MemoryEntrySchema = z.strictObject({
   lastUsedAt: TimestampSchema.nullable().default(null),
 });
 export type MemoryEntry = z.infer<typeof MemoryEntrySchema>;
+
+/**
+ * One entry of `profile/answers.yaml`: the question, its answer and where it came from. The push
+ * adds the question key, and keeps the use counts already in Firestore.
+ */
+export const MemorySeedSchema = MemoryEntrySchema.pick({
+  question: true,
+  answer: true,
+  kind: true,
+  source: true,
+});
+export type MemorySeed = z.infer<typeof MemorySeedSchema>;

@@ -123,3 +123,17 @@ export const ProfileSchema = z.strictObject({
   }),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
+
+/**
+ * `profile/profile.yaml` as he writes it: the stored profile, except that each resume is a path.
+ * `pnpm scout profile push` checks each file exists and stores its path with its SHA-256 (#4).
+ */
+export const ProfileFileSchema = ProfileSchema.extend({
+  resumes: z.strictObject({
+    default: required(Text),
+    backend: optional(Text),
+    ai: optional(Text),
+    devops: optional(Text),
+  }),
+});
+export type ProfileFile = z.infer<typeof ProfileFileSchema>;
