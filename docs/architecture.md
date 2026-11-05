@@ -606,7 +606,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `memory/{questionKey}` | Answers he gave before | The ID is a hash of the normalized question, so the same question always maps to one document. |
 | `jobs/{jobKey}` | A posting, its filter result and its triage. `sources` lists where it was found, including `you` with the link he pasted. | The ID comes from the posting, so collecting twice updates instead of duplicating. |
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
-| `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. |
+| `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. The ID starts with the move's ISO time, like `2026-11-05T14:01:00.000Z_queued_planning`, so documents sort in the order the moves happened. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
 | `runs/{runId}` | One pipeline or agent run, with counts and errors | The dashboard shows when a source failed. |
 | `kb/bases/items/{baseId}` | A base resume: template, bullets in order, skill rows, the source `.tex`, and whether it is active | Switching the active base is one write, and each resume records which base it used. |
@@ -632,10 +632,10 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 
 Conventions:
 
-- Times use Firestore server timestamps.
+- Times are stored as Firestore timestamps. The pipeline and the agent take them from an injected clock, so tests are exact; the dashboard's writes are checked against the request time by the security rules.
 - Stages and enums are stored as lowercase strings, like `needs_answers`.
 - Posting text is capped at 50 KB, well under Firestore's 1 MiB document limit.
-- A stage change and its event are written in the same batch, so the history is never missing a move.
+- A stage change and its event are written in the same transaction, which reads the stage again first. If someone else moved the application in the meantime, the move fails, so two moves can never both win and the history is never missing one.
 
 ### Backups
 
