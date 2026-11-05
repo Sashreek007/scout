@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Architecture
+    url: https://github.com/Sashreek007/scout/blob/main/docs/architecture.md
+    about: The design every story builds on.
+  - name: How changes are tested and land
+    url: https://github.com/Sashreek007/scout/blob/main/docs/workflow.md
+    about: Testing layers, branches, commits and pull requests.
