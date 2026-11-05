@@ -17,6 +17,12 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.14.0(jiti@2.7.0))
+      '@scout/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@scout/testkit':
+        specifier: workspace:*
+        version: link:packages/testkit
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
