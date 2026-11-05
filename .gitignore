@@ -7,3 +7,9 @@ __pycache__/
 node_modules/
 *.sqlite
 profile/profile.yaml
+
+# design generator outputs
+design/figma/*.html
+design/figma/swap*.js
+design/diagrams/urls/
+design/diagrams/go_*.html

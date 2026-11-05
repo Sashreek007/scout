@@ -355,6 +355,15 @@ Nothing is learned silently. Suggestions wait on the Knowledge page until he acc
 
 **`rules.md` stays the human-readable view.** The knowledge base exports back to Markdown, so the resume advisor and Sashreek can still read the rules in one file.
 
+### Documents other than the resume
+
+Some forms ask for a transcript, a cover letter or another file. Without a plan for them, those applications would stop and wait for him.
+
+- **Where they live.** On the Mac in `~/.scout/documents`, because the agent that uploads them runs there and the Spark plan has no Storage. Firestore keeps each document's kind, file name, size and SHA-256 in `documents/{id}`.
+- **Planning.** The form readers mark each file field with what it asks for and whether it's required. The planner maps it to a document, and a required field with no document becomes a question.
+- **Cover letters.** When a form requires one, scout drafts it from the knowledge base with the resume's rules and checks, renders it from a template to a one-page PDF, and puts it on the sheet as a draft he must read. Optional cover letter fields stay empty unless he turns them on.
+- **Uploading.** The upload tool only accepts documents approved on that application's sheet, and the guard checks each file's hash first. Issue #56.
+
 ## 5c. Running agents in parallel
 
 ![Supervisor and agents](images/agents.png)
@@ -499,7 +508,8 @@ Every tool a model can call is served by scout's own MCP server in `packages/mcp
 | `ask_user` | Ask a live question and wait for the answer or the timeout | Allow |
 | `suggest_memory` | Propose a fact, rule, company quirk or skill change | Allow. It only creates a suggestion. |
 | `report` | Add a progress line to the session | Allow |
-| `create_account`, `solve_captcha`, `upload_file` other than the approved resume | | Deny |
+| `upload_file` | Attach a document | Allow only files approved on this application's sheet, checked by hash |
+| `create_account`, `solve_captcha` | | Deny |
 
 The policies live in `config/permissions` and are edited in Settings, like Claude Code's allow, ask and deny lists. An `ask` becomes a request on the event stream.
 
@@ -583,6 +593,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `applications/{jobKey}.summary` | The session summary written after each turn | The next turn starts from it. |
 | `companies/{domain}` | Logo, application system, past applications and outcomes, selectors that worked, form quirks, recruiter names | Company memory, shared by every session for that company. |
 | `commands/{id}` | A command from the web or phone: type, target, who, when, and the result the server writes back | The way into the Mac without opening a port. |
+| `documents/{id}` | A transcript, cover letter or other file: kind, file name, size, SHA-256 | The file itself stays on the Mac. The hash is what the upload guard checks. |
 | `config/permissions` | The allow, ask or deny policy for each tool, and the mode per board | Edited in Settings, read by the guard hook on every tool call. |
 | On the Mac: `~/.scout/sessions.db` and `runs/` | The full session log of every application, and screenshots | Too big for the Spark plan, and only needed for debugging. |
 
@@ -592,6 +603,10 @@ Conventions:
 - Stages and enums are stored as lowercase strings, like `needs_answers`.
 - Posting text is capped at 50 KB, well under Firestore's 1 MiB document limit.
 - A stage change and its event are written in the same batch, so the history is never missing a move.
+
+### Backups
+
+The Spark plan has no scheduled Firestore backups, so scout makes its own. A nightly GitHub Actions job exports every collection to JSON and commits it to a private `scout-backups` repository: daily folders for 30 days, and the first of each month for a year. It reads under 5,000 documents a night. `pnpm scout restore` restores one collection or everything, into the emulator first and into production only with `--confirm`. The Mac's `~/.scout` folder, with session logs and documents, goes in Time Machine. Issue #58.
 
 ### Security rules
 
@@ -636,6 +651,8 @@ Setup steps:
 4. Create the Vercel project with the Firebase web config, which is public and not a secret.
 5. Turn on Firebase Cloud Messaging and generate the web push key for the dashboard.
 6. Set a monthly spend limit on the Anthropic API key.
+7. Create the private `scout-backups` repository and give the nightly job a deploy key for it.
+8. Include `~/.scout` in Time Machine.
 
 ## 7. One job, front to back
 
@@ -693,6 +710,8 @@ Across the three steps, Claude made two decisions, tailored one resume and draft
 
 ## 9. Working in the codebase
 
+Testing, the git workflow, environments and how an issue becomes a merged pull request are in [`docs/workflow.md`](workflow.md).
+
 ### Folder layout
 
 ```text
@@ -732,12 +751,13 @@ scout/
 │   ├── mcp/                       scout's MCP server: tools, permission policies, guard and logging hooks
 │   ├── ui/                        React pages and components shared by the web dashboard and the Mac app
 │   └── testkit/                   InMemoryStore, FakeLlm, saved feeds, forms and job descriptions
+├── evals/                         case sets with his labels, thresholds.yaml, results/
 ├── firebase/                      firestore.rules, firestore.indexes.json, firebase.json
 ├── profile/                       seed files, imported into Firestore once
 ├── resume/                        base resume templates and the knowledge base seed importer
 ├── skills/                        one file per job board: how its forms behave and their known traps
 ├── sources/                       sources.yaml and boards.yaml
-├── .github/workflows/             daily.yml runs the pipeline, ci.yml runs the tests
+├── .github/workflows/             daily.yml runs the pipeline, ci.yml runs the tests, evals.yml scores AI changes, backup.yml exports Firestore nightly
 └── docs/                          this file, PLAN.md, diagrams/ (draw.io sources), images/ (PNGs)
 ```
 
@@ -798,13 +818,26 @@ Example: "Willing to work night shifts".
 
 Change `firebase/firestore.rules` in the same pull request as the feature that needs it. Test against the Firebase emulator. A wrong rule either blocks the dashboard or lets it write fields that belong to the agent.
 
+### Checking the AI's work
+
+Unit tests prove the code runs. Evals prove the judgement is still good. `evals/` holds fixed cases with known-good results:
+
+| Set | Cases | Scored on |
+|---|---|---|
+| Triage | 60 or more postings with his label: apply, maybe or skip | Agreement with his labels |
+| Answer planning | 20 or more forms with the sheet he approved | Wrong factual answers, which must be zero |
+| Resumes | 15 or more job descriptions with the resume he approved | Pre-flight pass rate, bullets that differ from his version |
+| Field help | 20 or more page snapshots with the right field known | Fields found correctly |
+
+Every time he overrides triage, edits a planned answer or rewrites a bullet, the dashboard offers to save it as a case, so the sets grow from real use. `pnpm eval` runs them all. CI runs them on any pull request that changes a prompt, a schema Claude fills, or the default models, and fails it if a score drops past `evals/thresholds.yaml`. A wrong work-authorization or availability answer fails the run outright. Issue #57.
+
 ### Editing the diagrams
 
 The sources are in `docs/diagrams/` as `.drawio` files. Open one at app.diagrams.net or in the draw.io desktop app, edit it, and export a PNG at 200% zoom into `docs/images/` with the same name.
 
 ## 10. Build order and open questions
 
-The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26 and #28 to #55: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
+The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26 and #28 to #59: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
 
 | Phase | What gets built | Done when |
 |---|---|---|
@@ -822,5 +855,5 @@ Open questions:
 4. For the mail watcher: sign in again every 7 days, or publish the Google OAuth app as an unverified personal app?
 5. Is he already registered in the Science Internship Program? Some forms ask, and the profile needs the answer.
 6. Should v7 become the active base before the knowledge base is seeded? Switching later is supported either way.
-7. Should cover letters use the same knowledge base and checks in a later phase?
+7. Partly settled November 5, 2026: a required cover letter is drafted from the knowledge base and approved like a draft answer (#56). Still open: should optional cover letter fields be filled too?
 8. Settled November 5, 2026: scout gets an Electron Mac app, his call. Still open: does he have an Apple developer account for signing, and does the Liquid Glass package hold up on macOS 26 well enough to turn on by default?
