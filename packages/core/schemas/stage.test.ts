@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ActorSchema, STAGES, StageEventSchema, StageSchema } from './stage';
+import { STAGES } from '../stages';
+import { ActorSchema, StageEventSchema, StageSchema } from './stage';
 
 describe('StageSchema', () => {
   it('accepts every stage from section 3', () => {
