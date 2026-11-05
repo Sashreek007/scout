@@ -46,7 +46,7 @@ scout runs in four places. A daily job in GitHub Actions finds and ranks posting
 | Language | TypeScript everywhere | The pipeline, the agent and the dashboard share one set of types, so a Job written by the pipeline is the same Job the dashboard reads. |
 | Repo layout | pnpm workspaces: three apps and three packages | Section 9 shows the folders. |
 | Data shapes | Zod | One schema gives the TypeScript type and checks data at runtime. It checks feed data, Firestore documents and Claude's output. |
-| AI | Claude Opus 5.5 through the Anthropic TypeScript SDK | Triage and answer planning use structured output. The agent's fallback uses the SDK's tool runner. |
+| AI | Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic TypeScript SDK, with Opus 5.5 as a resume's last try | Triage and answer planning use structured output. The agent's fallback uses the SDK's tool runner. |
 | Browser | Playwright driving Chrome with its own scout profile | Runs on the Mac, headed, so Sashreek can watch or take over. |
 | Database | Cloud Firestore, Standard edition | Live listeners for the dashboard and transactions for claiming work. |
 | Sign-in | Firebase Auth with Google | One user. Security rules let only his account in. |
@@ -149,7 +149,7 @@ Everything Claude writes is checked by code against the knowledge base before Sa
 | A worker asks live when it meets a question, and holds the form for 10 minutes. | Most new questions take him seconds to answer. Holding the tab means the application finishes now instead of a day later, and other workers keep going meanwhile. |
 | The agent claims work with a Firestore transaction and a lease. | Two agent runs can never fill the same application. A crashed run's lease runs out and someone can pick the work up again. |
 | The agent writes `submitAttemptAt` before it clicks Submit. | If it crashes between the click and the confirmation, a retry could apply twice. With the marker set, a retry goes to `needs_hand` and he checks his email first. |
-| Claude Opus 5.5 at low effort for triage, medium for planning, with server-side refusal fallback. | Triage is a short decision. Planning needs more care. Fallback reruns a refused request on another model in the same call, and the code still checks `stop_reason` before reading the answer. |
+| Haiku 5.5 for triage and short reading tasks, Sonnet 5.5 for planning, tailoring and field help, and Opus 5.5 only for a resume's third try. Sashreek's call, November 5, 2026. | About $30 to $60 a month instead of $60 to $120. The evals in #57 prove each choice before real applications, and any task can move back to Opus in Settings. Sonnet and Opus calls use the API's server-side refusal fallback; Haiku has none, so a refused Haiku call is retried on Sonnet in code. |
 | The stable part of every prompt is cached. | The instructions and his profile are the same on every call. Cache reads cost $0.20 per million tokens, against $4 for normal input. |
 | Every application gets its own resume, built from the active base resume by the rules in `rules.md`. | This is the process that already works by hand. scout automates it instead of inventing a new one. Fixed variants can't move a project up for one job or swap mint's SDK bullet for its observability bullet for an SRE posting. |
 | The knowledge base is modelled on the assistant memory used today: facts with sources, feedback with the reason, and dated decisions. | Facts alone aren't enough. "Never write '100% cited'" only stays fixed if the reason is stored with it, and "no dates on projects, his call" stops the same question coming back. |
@@ -359,7 +359,7 @@ A base is a complete resume he has signed off: its LaTeX template, its bullets i
 
 This runs in the daily pipeline, next to answer planning, for every queued application.
 
-1. **Plan.** Claude Opus 5.5 at high effort reads the job description and the knowledge base. It returns a plan: which entries appear and in what order, an honest retitle if one fits, which bullets by ID, any rewording in the job's vocabulary, the skill rows named the way the job names them, and an availability line if the posting asks for one. Every reworded bullet keeps the fact IDs of the bullet it came from.
+1. **Plan.** Claude Sonnet 5.5 at high effort reads the job description and the knowledge base. It returns a plan: which entries appear and in what order, an honest retitle if one fits, which bullets by ID, any rewording in the job's vocabulary, the skill rows named the way the job names them, and an availability line if the posting asks for one. Every reworded bullet keeps the fact IDs of the bullet it came from.
 2. **Render.** Code fills the active base's template with the plan. Claude never writes raw LaTeX.
 3. **Compile.** Tectonic builds the PDF. A small macro in the template writes each bullet's line count to the log, so line limits are measured, not estimated.
 4. **Check.** Code runs the pre-flight list from `rules.md`: one page by `pdfinfo`, line and bullet limits, bold spans, banned words, repeated verbs, must-survive items present, no never-print term, every number on the page found in a printable fact, no new overfull heading, and every link returning 200.
@@ -429,10 +429,13 @@ Every Claude call goes through the `Llm` port, so the model, effort and account 
 
 | Task | Default model and effort | Can use the subscription |
 |---|---|---|
-| Triage | Claude Opus 5.5, low | Yes, when the Mac runs the pipeline |
-| Resume tailoring | Claude Opus 5.5, high | Yes, when the Mac runs the pipeline |
-| Answer planning | Claude Opus 5.5, medium | Yes, when the Mac runs the pipeline |
-| Browser fallback | Claude Opus 5.5, medium | No, it needs the API's tool runner |
+| Triage | Claude Haiku 5.5, low, through the Batches API at half price | Yes, when the Mac runs the pipeline |
+| Answer planning | Claude Sonnet 5.5, medium | Yes, when the Mac runs the pipeline |
+| Resume and cover letter tailoring | Claude Sonnet 5.5, high. A third try, when the checks fail twice, uses Claude Opus 5.5. | Yes, when the Mac runs the pipeline |
+| Live field help in the browser | Claude Sonnet 5.5, low | No, it needs the API's tool runner |
+| Reading a careers page he added, session summaries, reading employer email | Claude Haiku 5.5, low to medium | Yes |
+
+**Sonnet and Haiku by default, Opus only where it earns its price.** Sashreek chose this on November 5, 2026: use Sonnet 5.5 and Haiku 5.5 wherever they do the job well. Triage and the short reading tasks are classification and extraction, which Haiku handles. Planning, tailoring and field help need more judgement, so they get Sonnet. The evals in #57 check this before the first real application: each task's case set runs on its default and on Opus 5.5, and a task that falls short of its threshold moves to Opus in `config/models` with no code change. Haiku has no server-side refusal fallback, so a refused Haiku call is retried on Sonnet in code. Sonnet and Opus calls use the API's server-side fallback.
 
 **The API is the default for everything.** The subscription option runs `claude -p` with `--json-schema` on the Mac, with `ANTHROPIC_API_KEY` removed from that process so it bills his Claude plan. When the plan's session or weekly limit is hit, the run fails, scout detects it and repeats the call on the API, and the run log says which account paid. Two limits on this option:
 
@@ -588,7 +591,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 - **What it shows.** The same React pages as the web dashboard, from a shared `packages/ui`, connected to the local server for instant updates. It adds native notifications, the live browser view of every agent's tab, and taking over a tab from inside the app.
 - **The look.** Electron's built-in vibrancy gives the frosted macOS sidebar. Liquid Glass on macOS 26 comes from `NSGlassEffectView`, which Electron doesn't expose itself. The community [electron-liquid-glass](https://github.com/Meridius-Labs/electron-liquid-glass) package wraps it for macOS 26 and newer and falls back to the older blur elsewhere. scout uses Electron's vibrancy from the start, and tries the Liquid Glass package behind a setting on macOS 26. If the package breaks on a macOS update, the setting falls back to vibrancy and nothing else changes. A native SwiftUI app would get Liquid Glass first-hand, but it means a second UI codebase.
 - **How it's built.** The main process starts the scout server as a child process and restarts it if it dies, so a crash in an agent never takes the window down. The window loads `packages/ui` from a local build and talks to the server over the local WebSocket. A preload script exposes only the protocol's typed calls to the page; the page has no Node access.
-- **Shipping.** It is signed and notarized with his Apple developer account, and updates itself from GitHub Releases. Until he has an account, he builds it locally and macOS asks once to allow it.
+- **Shipping.** He has a free Apple developer account, not the paid program, so there is no Developer ID signing, notarization or self-update. That's fine for an app only he uses: `pnpm desktop:build` builds it on his Mac with an ad-hoc signature, and a build made on his own Mac opens without a Gatekeeper prompt. `pnpm desktop:update` pulls `main` and rebuilds. Whether an ad-hoc signed build can post macOS notifications gets checked early in #55; if it can't, live questions use the in-app banner and the phone push. Joining the paid program later turns on signing and updates from GitHub Releases without a rewrite.
 - **What stays.** The web dashboard on Vercel stays for the phone and for anywhere access, as a PWA.
 
 ## 6. Data in Firebase
@@ -666,12 +669,17 @@ The Claude API is not free. This is an estimate, not a measurement:
 
 | Work | Volume | Tokens per call | Cost a month |
 |---|---|---|---|
-| Triage | 15 to 30 new postings a day after the code filters | 1,500 new input, 3,000 cached, 500 output | About $8 to $15 |
-| Answer planning | 10 to 20 applications a day | 6,000 input, 1,500 output | About $17 to $33 |
-| Resume tailoring | 10 to 20 applications a day, 1.5 tries on average | 4,000 new input, 20,000 cached knowledge base, 3,000 output | About $35 to $70 |
-| Browser fallback | Rare | Varies | Small |
+Prices are per million tokens: Haiku 5.5 $0.10 in and $0.50 out, Sonnet 5.5 $2 in and $10 out, Opus 5.5 $4 in and $20 out, and cache reads $0.20 on Sonnet and Opus. The Batches API is half price.
 
-That makes about $60 to $120 a month at 10 to 20 applications a day, plus about $5 once for the first backlog. Tailoring is the biggest line, because it runs at high effort. If that is too much, the levers are Claude Haiku 5.5 for triage, at $0.10 per million input tokens, or the Batches API at half price, since triage doesn't need an answer right away. Set a monthly spend limit in the Anthropic Console either way.
+| Work | Model | Volume | Tokens per call | Cost a month |
+|---|---|---|---|---|
+| Triage | Haiku 5.5, batched | 15 to 30 new postings a day after the code filters | 1,500 new input, 3,000 cached, about 1,000 output with thinking | Under $1 |
+| Answer planning | Sonnet 5.5 | 10 to 20 applications a day | 6,000 input, 1,500 output | About $8 to $16 |
+| Resume tailoring | Sonnet 5.5, with Opus 5.5 for about 1 in 10 third tries | 10 to 20 applications a day, 1.5 tries on average | 4,000 new input, 20,000 cached knowledge base, 3,000 output | About $21 to $43 |
+| Page reading, summaries, email | Haiku 5.5 | A few calls per application | 4,000 input, 400 output | Under $2 |
+| Field help in the browser | Sonnet 5.5 | Rare | Varies | Small |
+
+That makes about $30 to $60 a month at 10 to 20 applications a day, about half of the same work on Opus 5.5, plus a few dollars once for the first backlog. Tailoring is still the biggest line, because it writes the most and runs at high effort. Evals run only on pull requests that change a prompt or a model, through the Batches API. Set a monthly spend limit in the Anthropic Console either way.
 
 Setup steps:
 
@@ -880,10 +888,10 @@ The work is broken into user stories with acceptance criteria, as GitHub issues 
 Open questions:
 
 1. When should `finalClick` move from `hold` to `auto`, and should that be decided per board?
-2. Is $15 to $35 a month for Claude acceptable, or should triage move to Haiku 5.5 or the Batches API?
+2. Settled November 5, 2026: Sonnet 5.5 and Haiku 5.5 wherever they do the job well, about $30 to $60 a month. The evals in #57 confirm each task before real applications.
 3. Settled November 5, 2026: the daily cap defaults to 20, his call. It can be raised or turned off in Settings.
 4. For the mail watcher: sign in again every 7 days, or publish the Google OAuth app as an unverified personal app?
 5. Is he already registered in the Science Internship Program? Some forms ask, and the profile needs the answer.
 6. Should v7 become the active base before the knowledge base is seeded? Switching later is supported either way.
 7. Partly settled November 5, 2026: a required cover letter is drafted from the knowledge base and approved like a draft answer (#56). Still open: should optional cover letter fields be filled too?
-8. Settled November 5, 2026: scout gets an Electron Mac app, his call. Still open: does he have an Apple developer account for signing, and does the Liquid Glass package hold up on macOS 26 well enough to turn on by default?
+8. Settled November 5, 2026: scout gets an Electron Mac app, built locally because he has a free Apple developer account without the paid program. Still open: does the Liquid Glass package hold up on macOS 26 well enough to turn on by default?

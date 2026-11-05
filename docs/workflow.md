@@ -56,7 +56,7 @@ Tests can't catch everything, so production has its own stops, all from the arch
 
 ### Branches
 
-- `main` is always working. Once the first line of code lands, nothing reaches `main` except through a pull request with green checks. Branch protection enforces it. On a private repository that needs GitHub Pro, which the GitHub Student Developer Pack includes.
+- `main` is always working. Once the first line of code lands, nothing reaches `main` except through a pull request with green checks. Branch protection enforces it; his account has GitHub Pro, which private repositories need for it.
 - One branch per issue, cut from `main` and kept short, a few days at most: `feat/37-temporal-supervisor`, `fix/112-lever-location-field`, `docs/…`, `chore/…`.
 - Before merging, the branch is rebased on `main` so the history stays straight.
 
@@ -81,7 +81,7 @@ Tests can't catch everything, so production has its own stops, all from the arch
 | Every pull request | Install with the pnpm cache, typecheck, lint, unit, property, fixture, emulator, workflow, Playwright and server tests, then build the web and desktop apps |
 | Pull requests that change prompts, schemas Claude fills or default models | Evals, reported as a comment on the pull request |
 | Merge to `main` | Vercel deploys the dashboard to production |
-| A tag like `v0.2.0` | Builds the signed Mac app and attaches it to a GitHub Release |
+| A tag like `v0.2.0` | Creates a GitHub Release with the changelog. The Mac app is built on his Mac, not in CI, because it isn't signed for distribution |
 | Every night | The Firestore backup from #58 |
 | Every morning | The pipeline |
 
@@ -94,7 +94,7 @@ Tests can't catch everything, so production has its own stops, all from the arch
 
 ### Releases
 
-Each phase milestone ends with a tag: `v0.1.0` when phase 1 is done, and so on. The changelog comes from the commit messages. The Mac app updates itself from the latest release.
+Each phase milestone ends with a tag: `v0.1.0` when phase 1 is done, and so on. The changelog comes from the commit messages. He updates the Mac app with `pnpm desktop:update`, which pulls `main` and rebuilds it locally.
 
 ## 4. How Claude works an issue
 

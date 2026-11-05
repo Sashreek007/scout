@@ -85,7 +85,7 @@ runs_body = f'''
    <div class="card" style="flex:1"><div class="cardh"><h2>Filters</h2><span class="sub">new and changed jobs</span></div><div class="cardb vstack" style="gap:9px">
     <div class="hstack"><span>Passed</span><span class="sp"></span><b>6</b></div>
     <div class="hstack"><span class="muted">Location</span><span class="sp"></span>2</div><div class="hstack"><span class="muted">Role</span><span class="sp"></span>2</div><div class="hstack"><span class="muted">Eligibility</span><span class="sp"></span>1</div><div class="hstack"><span class="muted">Values</span><span class="sp"></span>0</div></div></div>
-   <div class="card" style="flex:1"><div class="cardh"><h2>Triage</h2><span class="sub">Claude Opus 5.5, low effort</span></div><div class="cardb vstack" style="gap:9px">
+   <div class="card" style="flex:1"><div class="cardh"><h2>Triage</h2><span class="sub">Claude Haiku 5.5, low effort</span></div><div class="cardb vstack" style="gap:9px">
     <div class="hstack"><span>Apply</span><span class="sp"></span><b>4</b></div><div class="hstack"><span class="muted">Maybe</span><span class="sp"></span>1</div><div class="hstack"><span class="muted">Skip</span><span class="sp"></span>1</div><div class="hstack"><span class="muted">Auto-queued at 75+</span><span class="sp"></span>3</div></div></div>
    <div class="card" style="flex:1"><div class="cardh"><h2>Tokens and cost</h2></div><div class="cardb vstack" style="gap:9px">
     <div class="hstack"><span class="muted">Input</span><span class="sp"></span>41,260</div><div class="hstack"><span class="muted">Read from cache</span><span class="sp"></span>27,900</div><div class="hstack"><span class="muted">Output</span><span class="sp"></span>9,815</div><div class="hstack"><span>Estimated cost</span><span class="sp"></span><b>$0.41</b></div></div></div>
@@ -160,8 +160,8 @@ settings_body = f'''
  </div>
  <div class="col" style="width:420px">
   <div class="card"><div class="cardh"><h2>Claude</h2></div><div class="cardb vstack" style="gap:10px">
-   <div class="hstack"><span class="muted">Triage</span><span class="sp"></span>Claude Opus 5.5, low effort</div>
-   <div class="hstack"><span class="muted">Answer planning</span><span class="sp"></span>Claude Opus 5.5, medium effort</div>
+   <div class="hstack"><span class="muted">Triage</span><span class="sp"></span>Claude Haiku 5.5, low effort</div>
+   <div class="hstack"><span class="muted">Answer planning</span><span class="sp"></span>Claude Sonnet 5.5, medium effort</div>
    <div class="hstack"><span class="muted">Refusal fallback</span><span class="sp"></span>On</div>
    <div class="hstack"><span class="muted">This month</span><span class="sp"></span>$21.37 of a $40 limit</div>
    <div class="bar"><i style="width:53%;background:#7AA2F7"></i></div>

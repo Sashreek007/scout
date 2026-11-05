@@ -103,7 +103,7 @@ jobs_rows = "".join([
 drawer = f'''<div class="card" style="width:350px;flex-shrink:0;display:flex;flex-direction:column">
  <div class="cardh" style="align-items:flex-start"><div class="vstack" style="gap:3px"><span class="note">greenhouse:northwind:7741203</span><h2 style="font-size:16px">Software Developer Intern</h2><span class="muted">Northwind Robotics, Toronto, ON, Winter 2027</span></div><div class="right">{icon("x","#6C7169",16)}</div></div>
  <div class="cardb vstack" style="gap:16px">
-  <div class="hstack">{score(82)}<span class="pill st-applied"><span class="d"></span>Apply</span><span class="mono muted">resume: backend</span><span class="sp"></span><span class="note">Claude Opus 5.5 · low effort</span></div>
+  <div class="hstack">{score(82)}<span class="pill st-applied"><span class="d"></span>Apply</span><span class="mono muted">resume: backend</span><span class="sp"></span><span class="note">Claude Haiku 5.5 · low effort</span></div>
   <div class="vstack" style="gap:6px"><span class="sectionlabel">Why it fits</span>
    <div class="hstack" style="align-items:flex-start">{icon("check","#1E7A4C",14)}<span>Go and Kubernetes platform work matches your API key and quota service</span></div>
    <div class="hstack" style="align-items:flex-start">{icon("check","#1E7A4C",14)}<span>Winter 2027, 4 or 8 months, Toronto hybrid</span></div>
