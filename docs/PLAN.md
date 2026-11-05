@@ -1,5 +1,8 @@
 # scout: plan
 
+> Superseded in detail by `docs/architecture.md` (Nov 5, 2026): TypeScript monorepo, pipeline on GitHub Actions,
+> profile and answers in Firestore, agent on the Mac. Where the two differ, architecture.md wins.
+
 ## 1. Goal
 
 Find internship and co-op postings in Canada from public sources, decide which ones fit Sashreek,
