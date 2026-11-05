@@ -1,11 +1,111 @@
 rules_version = '2';
 
-// Placeholder until #3 writes the real rules: every client read and write is denied.
-// The pipeline and the agent use the Admin SDK, which skips rules, so nothing in phase 0 needs more.
+// Security rules for the dashboard (docs/architecture.md, section 6). Only Sashreek's account gets
+// in. The pipeline and the agent use the Admin SDK, which skips these rules, so the fields only
+// they may write are protected here from a dashboard bug. Tests: firestore.rules.emulator.test.ts.
+//
+// Anything not allowed below is denied. A feature that needs a new client write adds its rule and
+// its test in the same pull request (section 9).
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // His Firebase Auth user ID. Set it after his first Google sign-in on scout-dev and scout-prod;
+    // until then nobody can read or write from a client.
+    function ownerUid() {
+      return 'OWNER_UID_NOT_SET'; // owner uid
+    }
+
+    function isOwner() {
+      return request.auth != null && request.auth.uid == ownerUid();
+    }
+
+    // The stage moves a person makes from the dashboard: answer, approve, skip, retry, confirm a
+    // submission, and the moves after applying. Everything else belongs to the pipeline, the agent
+    // or the mail watcher.
+    function dashboardMoves() {
+      return {
+        'needs_answers': ['review'],
+        'review': ['approved', 'skipped'],
+        'failed': ['approved'],
+        'needs_hand': ['applied', 'approved'],
+        'applied': ['assessment', 'rejected', 'withdrawn'],
+        'assessment': ['interview', 'rejected', 'withdrawn'],
+        'interview': ['offer', 'rejected', 'withdrawn'],
+        'offer': ['rejected', 'withdrawn']
+      };
+    }
+
+    function canMove(from, to) {
+      return from in dashboardMoves() && to in dashboardMoves()[from];
+    }
+
+    // Within a few minutes of the request, so a move can't be backdated.
+    function isNow(t) {
+      return t is timestamp
+        && t > request.time - duration.value(5, 'm')
+        && t < request.time + duration.value(1, 'm');
+    }
+
+    // The same ID as eventId() in packages/core/stages.ts: milliseconds, from, to.
+    function eventId(at, from, to) {
+      return string(at.toMillis()) + '_' + from + '_' + to;
+    }
+
+    function eventPath(jobKey, at, from, to) {
+      return /databases/$(database)/documents/applications/$(jobKey)/events/$(eventId(at, from, to));
+    }
+
+    // Fields only the agent writes: its claim on the application and the submit markers.
+    function agentFields() {
+      return ['lease', 'submitAttemptAt', 'submittedAt'];
+    }
+
+    // He can read everything scout stores about him.
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if isOwner();
+    }
+
+    match /applications/{jobKey} {
+      // Queueing a job from the dashboard: only in queued, with no agent fields, and with its
+      // first event in the same write.
+      allow create: if isOwner()
+        && request.resource.data.jobKey == jobKey
+        && request.resource.data.stage == 'queued'
+        && isNow(request.resource.data.stageAt)
+        && request.resource.data.get('lease', null) == null
+        && request.resource.data.get('submitAttemptAt', null) == null
+        && request.resource.data.get('submittedAt', null) == null
+        && existsAfter(eventPath(jobKey, request.resource.data.stageAt, 'new', 'queued'));
+
+      // Anything but the agent's fields, and the stage only along a dashboard move, with its event
+      // in the same write.
+      allow update: if isOwner()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(agentFields().concat(['jobKey', 'createdAt']))
+        && (request.resource.data.stage == resource.data.stage
+              ? !request.resource.data.diff(resource.data).affectedKeys().hasAny(['stageAt'])
+              : canMove(resource.data.stage, request.resource.data.stage)
+                && isNow(request.resource.data.stageAt)
+                && existsAfter(eventPath(jobKey, request.resource.data.stageAt,
+                                         resource.data.stage, request.resource.data.stage)));
+
+      // Events are history: added with the move they record, never changed or deleted.
+      match /events/{eventId} {
+        allow create: if isOwner()
+          && request.resource.data.keys().hasOnly(['from', 'to', 'by', 'at', 'detail'])
+          && request.resource.data.by == 'you'
+          && eventId == eventId(request.resource.data.at,
+                                request.resource.data.from == null ? 'new' : request.resource.data.from,
+                                request.resource.data.to)
+          && getAfter(/databases/$(database)/documents/applications/$(jobKey)).data.stage
+               == request.resource.data.to
+          && getAfter(/databases/$(database)/documents/applications/$(jobKey)).data.stageAt
+               == request.resource.data.at
+          && (request.resource.data.from == null
+                ? !exists(/databases/$(database)/documents/applications/$(jobKey))
+                : get(/databases/$(database)/documents/applications/$(jobKey)).data.stage
+                    == request.resource.data.from);
+      }
     }
   }
 }

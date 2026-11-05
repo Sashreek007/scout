@@ -17,6 +17,12 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["apps/*/src/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "*.ts"],
+  "include": [
+    "apps/*/src/**/*.ts",
+    "packages/**/*.ts",
+    "scripts/**/*.ts",
+    "firebase/**/*.ts",
+    "*.ts"
+  ],
   "exclude": ["**/node_modules", "**/coverage"]
 }
