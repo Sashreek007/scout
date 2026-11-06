@@ -94,16 +94,16 @@ scout is a **pipeline with a state machine, and adapters for each job board**. T
 | Stage | Meaning | Who moves it on |
 |---|---|---|
 | `queued` | Chosen to apply, by Sashreek or by the auto rule | The pipeline |
-| `planning` | The form is being read and the answers planned | The pipeline |
+| `planning` | The form is being read and the answers planned | The pipeline. After three failed tries it moves to `failed` |
 | `needs_answers` | Questions are waiting for Sashreek | Sashreek, by answering in the dashboard |
 | `review` | The answer sheet is ready | Sashreek: approve or skip |
 | `approved` | Ready for the agent | The agent, when it claims it |
-| `filling` | The agent is working in the browser | The agent |
-| `needs_hand` | A CAPTCHA, a login wall, or a result the agent can't read | Sashreek, at the Mac |
+| `filling` | The agent is working in the browser | The agent. If it stops, or its lease runs out before Submit, the application goes back to `approved`. With `finalClick: hold`, Sashreek's own click on Submit makes it `applied` |
+| `needs_hand` | A CAPTCHA, a login wall, or a result the agent can't read | Sashreek: back to `filling` once he fixed it at the Mac, back to `approved` for another agent, or `applied` when he confirms it went in. The agent marks it `applied` if the confirmation appears |
 | `applied` | The company's confirmation was seen | Sashreek or the mail watcher |
 | `assessment`, `interview`, `offer` | After applying | Sashreek or the mail watcher |
 | `rejected`, `withdrawn` | Closed after applying | Final |
-| `skipped`, `closed`, `failed` | Skipped at review, posting taken down, or an error. A failed one can be retried. | Final, except `failed` |
+| `skipped`, `closed`, `failed` | Skipped at review, posting taken down, or an error. A failed one can be filled again (`approved`) or planned again from the start (`queued`). | Final, except `failed` |
 
 **Adapters at the edges.** Code that talks to the outside sits behind small interfaces called ports, in `packages/core/ports.ts`. Each job board gets its own adapter. The core never imports Playwright, Firestore or the Anthropic SDK, so it is tested without a network.
 
@@ -606,7 +606,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `memory/{questionKey}` | Answers he gave before | The ID is a hash of the normalized question, so the same question always maps to one document. |
 | `jobs/{jobKey}` | A posting, its filter result and its triage. `sources` lists where it was found, including `you` with the link he pasted. | The ID comes from the posting, so collecting twice updates instead of duplicating. |
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
-| `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. |
+| `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. The ID is the move's time in milliseconds and the move, like `1793887260000_queued_planning`, so documents sort in the order the moves happened and the security rules can check that a stage change wrote its event. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
 | `runs/{runId}` | One pipeline or agent run, with counts and errors | The dashboard shows when a source failed. |
 | `kb/bases/items/{baseId}` | A base resume: template, bullets in order, skill rows, the source `.tex`, and whether it is active | Switching the active base is one write, and each resume records which base it used. |
@@ -632,10 +632,10 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 
 Conventions:
 
-- Times use Firestore server timestamps.
+- Times are stored as Firestore timestamps. The pipeline and the agent take them from an injected clock, so tests are exact; the dashboard's writes are checked against the request time by the security rules.
 - Stages and enums are stored as lowercase strings, like `needs_answers`.
 - Posting text is capped at 50 KB, well under Firestore's 1 MiB document limit.
-- A stage change and its event are written in the same batch, so the history is never missing a move.
+- A stage change and its event are written in the same transaction, which reads the stage again first. If someone else moved the application in the meantime, the move fails, so two moves can never both win and the history is never missing one.
 
 ### Backups
 

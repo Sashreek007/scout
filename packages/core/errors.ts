@@ -19,3 +19,18 @@ export class AlreadyExistsError extends Error {
     super(`${collection}/${id} already exists`);
   }
 }
+
+/**
+ * A stage move expected the application in one stage and found it in another: someone else moved
+ * it first. The move is not written.
+ */
+export class StaleStageError extends Error {
+  override readonly name = 'StaleStageError';
+  constructor(
+    readonly jobKey: string,
+    readonly expected: string,
+    readonly actual: string,
+  ) {
+    super(`applications/${jobKey} is in ${actual}, not ${expected}; it was moved by someone else`);
+  }
+}

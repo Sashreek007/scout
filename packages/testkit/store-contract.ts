@@ -1,6 +1,14 @@
 // The tests every `Store` must pass. InMemoryStore runs them now; FirestoreStore runs the same
 // suite against the emulator (#2), so the fake can't drift from the real thing.
-import { AlreadyExistsError, NotFoundError, type Store } from '@scout/core';
+import {
+  AlreadyExistsError,
+  IllegalMoveError,
+  NotFoundError,
+  StaleStageError,
+  type Application,
+  type Stage,
+  type Store,
+} from '@scout/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   aCreationEvent,
@@ -11,6 +19,38 @@ import {
   aQuestion,
   aRun,
 } from './builders';
+
+const T0 = new Date('2026-11-05T14:00:00Z');
+
+/** The shortest path of allowed moves from queued to each stage the contract tests use. */
+const PATHS: Partial<Record<Stage, [Stage, Stage, 'pipeline' | 'you' | 'agent'][]>> = {
+  queued: [],
+  review: [
+    ['queued', 'planning', 'pipeline'],
+    ['planning', 'review', 'pipeline'],
+  ],
+  approved: [
+    ['queued', 'planning', 'pipeline'],
+    ['planning', 'review', 'pipeline'],
+    ['review', 'approved', 'you'],
+  ],
+};
+
+/** Creates an application in queued and walks it to `stage` through moveStage, a minute a move. */
+async function createIn(
+  store: Store,
+  stage: keyof typeof PATHS,
+  overrides: Partial<Application> = {},
+): Promise<Application> {
+  const app = anApplication({ ...overrides, stage: 'queued', stageAt: T0, createdAt: T0 });
+  await store.applications.create(app, aCreationEvent(app));
+  let current = app;
+  for (const [i, [from, to, by]] of (PATHS[stage] ?? []).entries()) {
+    const at = new Date(T0.getTime() + (i + 1) * 60_000);
+    current = (await store.moveStage(app.jobKey, { from, to, by, at })).app;
+  }
+  return current;
+}
 
 /**
  * @param makeStore returns an empty store. It runs before every test, so a store backed by a real
@@ -69,7 +109,7 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
         );
       });
 
-      it('rejects a first event that does not start the application in its stage', async () => {
+      it('creates an application only in queued, by you or the pipeline', async () => {
         const app = anApplication({ stage: 'queued' });
         await expect(
           store.applications.create(app, aCreationEvent(app, { to: 'approved' })),
@@ -77,6 +117,13 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
         await expect(
           store.applications.create(app, aCreationEvent(app, { from: 'review' })),
         ).rejects.toThrow();
+        await expect(
+          store.applications.create(app, aCreationEvent(app, { by: 'agent' })),
+        ).rejects.toBeInstanceOf(IllegalMoveError);
+        const approved = anApplication({ stage: 'approved' });
+        await expect(
+          store.applications.create(approved, aCreationEvent(approved)),
+        ).rejects.toBeInstanceOf(IllegalMoveError);
         expect(await store.applications.get(app.jobKey)).toBeNull();
       });
 
@@ -103,13 +150,105 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
 
       it('lists applications by stage', async () => {
         const queued = anApplication();
-        const review = anApplication({ jobKey: 'lever:eqbank:abc', stage: 'review' });
         await store.applications.create(queued, aCreationEvent(queued));
-        await store.applications.create(review, aCreationEvent(review));
+        await createIn(store, 'review', { jobKey: 'lever:eqbank:abc' });
         expect((await store.applications.list({ stage: 'review' })).map((a) => a.jobKey)).toEqual([
           'lever:eqbank:abc',
         ]);
         expect(await store.applications.list()).toHaveLength(2);
+      });
+    });
+
+    describe('moveStage', () => {
+      const at = (minutes: number) => new Date(T0.getTime() + minutes * 60_000);
+
+      it('moves the application and appends its event, oldest first', async () => {
+        const app = await createIn(store, 'queued');
+        const moved = await store.moveStage(app.jobKey, {
+          from: 'queued',
+          to: 'planning',
+          by: 'pipeline',
+          detail: 'reading the form',
+          at: at(10),
+        });
+        expect(moved.app).toEqual({ ...app, stage: 'planning', stageAt: at(10) });
+        expect(moved.event).toEqual({
+          from: 'queued',
+          to: 'planning',
+          by: 'pipeline',
+          at: at(10),
+          detail: 'reading the form',
+        });
+        expect(await store.applications.get(app.jobKey)).toEqual(moved.app);
+        const events = await store.applications.events(app.jobKey);
+        expect(events.map((e) => [e.from, e.to])).toEqual([
+          [null, 'queued'],
+          ['queued', 'planning'],
+        ]);
+      });
+
+      it('fails when the stage is no longer the one the caller saw, and writes nothing', async () => {
+        const app = await createIn(store, 'review');
+        await expect(
+          store.moveStage(app.jobKey, { from: 'needs_answers', to: 'review', by: 'you' }),
+        ).rejects.toBeInstanceOf(StaleStageError);
+        expect((await store.applications.get(app.jobKey))?.stage).toBe('review');
+        expect(await store.applications.events(app.jobKey)).toHaveLength(3);
+      });
+
+      it('refuses a move the table does not allow, and writes nothing', async () => {
+        const app = await createIn(store, 'review');
+        await expect(
+          store.moveStage(app.jobKey, { from: 'review', to: 'filling', by: 'agent' }),
+        ).rejects.toBeInstanceOf(IllegalMoveError);
+        expect((await store.applications.get(app.jobKey))?.stage).toBe('review');
+        expect(await store.applications.events(app.jobKey)).toHaveLength(3);
+      });
+
+      it('fails for an application that does not exist', async () => {
+        await expect(
+          store.moveStage('lever:nobody:1', { from: 'queued', to: 'planning', by: 'pipeline' }),
+        ).rejects.toBeInstanceOf(NotFoundError);
+      });
+
+      it('lets only one of two concurrent moves from the same stage succeed', async () => {
+        const app = await createIn(store, 'review');
+        const results = await Promise.allSettled([
+          store.moveStage(app.jobKey, { from: 'review', to: 'approved', by: 'you', at: at(30) }),
+          store.moveStage(app.jobKey, { from: 'review', to: 'skipped', by: 'you', at: at(30) }),
+        ]);
+        const won = results.filter((r) => r.status === 'fulfilled');
+        const lost = results.filter((r) => r.status === 'rejected');
+        expect(won).toHaveLength(1);
+        expect(lost).toHaveLength(1);
+        expect(lost[0]?.reason).toBeInstanceOf(StaleStageError);
+        const winner = won[0]?.value.app.stage;
+        expect((await store.applications.get(app.jobKey))?.stage).toBe(winner);
+        const events = await store.applications.events(app.jobKey);
+        expect(events.map((e) => e.to)).toEqual(['queued', 'planning', 'review', winner]);
+      });
+
+      it('keeps every move when an application goes round a loop', async () => {
+        const app = await createIn(store, 'approved');
+        const path: [Stage, Stage, 'agent' | 'you'][] = [
+          ['approved', 'filling', 'agent'],
+          ['filling', 'needs_hand', 'agent'],
+          ['needs_hand', 'filling', 'you'],
+          ['filling', 'needs_hand', 'agent'],
+          ['needs_hand', 'applied', 'you'],
+        ];
+        for (const [i, [from, to, by]] of path.entries()) {
+          await store.moveStage(app.jobKey, { from, to, by, at: at(100 + i) });
+        }
+        const events = await store.applications.events(app.jobKey);
+        expect(events.map((e) => e.to).slice(-6)).toEqual([
+          'approved',
+          'filling',
+          'needs_hand',
+          'filling',
+          'needs_hand',
+          'applied',
+        ]);
       });
     });
 

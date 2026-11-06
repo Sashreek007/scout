@@ -1,31 +1,13 @@
 import { z } from 'zod';
+import { ACTORS, STAGES } from '../stages';
 import { TimestampSchema } from './common';
 
-/** Every stage an application can be in (docs/architecture.md, section 3). The moves are in #2. */
-export const STAGES = [
-  'queued',
-  'planning',
-  'needs_answers',
-  'review',
-  'approved',
-  'filling',
-  'needs_hand',
-  'applied',
-  'assessment',
-  'interview',
-  'offer',
-  'rejected',
-  'withdrawn',
-  'skipped',
-  'closed',
-  'failed',
-] as const;
-
+/** Every stage an application can be in. The list and the allowed moves live in `stages.ts`. */
 export const StageSchema = z.enum(STAGES);
 export type Stage = z.infer<typeof StageSchema>;
 
 /** Who moved an application: the daily pipeline, the agent on the Mac, Sashreek, or the mail watcher. */
-export const ActorSchema = z.enum(['pipeline', 'agent', 'you', 'mail']);
+export const ActorSchema = z.enum(ACTORS);
 export type Actor = z.infer<typeof ActorSchema>;
 
 /**

@@ -2,6 +2,7 @@
 // section 3). packages/core depends only on these; packages/adapters implements them, and
 // packages/testkit has the fakes the tests use.
 import type {
+  Actor,
   AnswerValue,
   Application,
   FormSpec,
@@ -57,6 +58,16 @@ export interface FormFiller<Page = unknown> {
   submit(page: Page): Promise<SubmitResult>;
 }
 
+/** A stage move as the store receives it: the stage the caller saw, and where it goes. */
+export interface StageMoveRequest {
+  from: Stage;
+  to: Stage;
+  by: Actor;
+  detail?: string | null;
+  /** When the move happened. Defaults to now; tests pass a fixed time. */
+  at?: Date;
+}
+
 /** Fields an application may change outside the stage machine. */
 export type ApplicationPatch = Partial<
   Omit<Application, 'jobKey' | 'stage' | 'stageAt' | 'createdAt'>
@@ -74,7 +85,10 @@ export interface Store {
   };
   readonly applications: {
     get(key: JobKey): Promise<Application | null>;
-    /** Creates the application with its first event. Fails if one already exists for the job. */
+    /**
+     * Creates the application in `queued` with its first event (see `firstEvent`). Fails if one
+     * already exists for the job.
+     */
     create(app: Application, event: StageEvent): Promise<void>;
     /** Changes anything but the stage. Fails if the application doesn't exist. */
     update(key: JobKey, patch: ApplicationPatch): Promise<void>;
@@ -82,6 +96,13 @@ export interface Store {
     /** Every stage event, oldest first. */
     events(key: JobKey): Promise<StageEvent[]>;
   };
+  /**
+   * Moves an application along the stage machine and writes its event, in one transaction. Inside
+   * it, the stage is read again: if it is no longer `from`, the move fails with StaleStageError and
+   * nothing is written, so two concurrent moves can't both succeed. A move the table doesn't allow
+   * fails with IllegalMoveError. Events are only ever added, never changed or deleted.
+   */
+  moveStage(key: JobKey, move: StageMoveRequest): Promise<{ app: Application; event: StageEvent }>;
   readonly questions: {
     get(id: string): Promise<Question | null>;
     put(question: Question): Promise<void>;
