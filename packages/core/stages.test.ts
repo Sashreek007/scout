@@ -32,14 +32,18 @@ const DIAGRAM: [Stage, Stage, Actor[]][] = [
   ['needs_answers', 'review', ['you']],
   ['review', 'approved', ['you']],
   ['review', 'skipped', ['you']],
+  ['planning', 'failed', ['pipeline']],
   ['approved', 'filling', ['agent']],
-  ['filling', 'applied', ['agent']],
+  ['filling', 'approved', ['agent']],
+  ['filling', 'applied', ['agent', 'you']],
   ['filling', 'needs_answers', ['agent']],
   ['filling', 'needs_hand', ['agent']],
   ['filling', 'failed', ['agent']],
   ['failed', 'approved', ['you']],
+  ['failed', 'queued', ['you']],
   ['needs_hand', 'filling', ['you']],
-  ['needs_hand', 'applied', ['you']],
+  ['needs_hand', 'approved', ['you']],
+  ['needs_hand', 'applied', ['you', 'agent']],
   // "posting taken down, any stage before applied"
   ['queued', 'closed', ['pipeline']],
   ['planning', 'closed', ['pipeline']],
@@ -49,6 +53,7 @@ const DIAGRAM: [Stage, Stage, Actor[]][] = [
   ['filling', 'closed', ['agent']],
   // after applying
   ['applied', 'assessment', ['you', 'mail']],
+  ['applied', 'interview', ['you', 'mail']],
   ['assessment', 'interview', ['you', 'mail']],
   ['interview', 'offer', ['you']],
   // "Rejected and withdrawn can follow any stage from applied on."

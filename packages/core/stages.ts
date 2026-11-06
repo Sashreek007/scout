@@ -57,20 +57,33 @@ export const MOVES: readonly Move[] = [
   { from: 'needs_answers', to: 'review', by: ['you'] },
   { from: 'review', to: 'approved', by: ['you'] },
   { from: 'review', to: 'skipped', by: ['you'] },
+  // Planning failed three times (#17)
+  { from: 'planning', to: 'failed', by: ['pipeline'] },
   // Applying
   { from: 'approved', to: 'filling', by: ['agent'] },
-  { from: 'filling', to: 'applied', by: ['agent'] },
+  // Stopped with Ctrl-C, or a lease ran out before Submit was clicked (#19)
+  { from: 'filling', to: 'approved', by: ['agent'] },
+  // The agent saw the confirmation, or he clicked Submit himself with finalClick: hold (#21)
+  { from: 'filling', to: 'applied', by: ['agent', 'you'] },
+  // The page asked something the sheet doesn't answer, and the live question timed out (#36)
   { from: 'filling', to: 'needs_answers', by: ['agent'] },
   { from: 'filling', to: 'needs_hand', by: ['agent'] },
   { from: 'filling', to: 'failed', by: ['agent'] },
+  // Retry: fill again, or plan again from the start
   { from: 'failed', to: 'approved', by: ['you'] },
+  { from: 'failed', to: 'queued', by: ['you'] },
+  // He fixed it at the Mac, sends it back to the agents, or confirms it went in. The agent also
+  // marks it applied if the confirmation appears while it waits on him (#21).
   { from: 'needs_hand', to: 'filling', by: ['you'] },
-  { from: 'needs_hand', to: 'applied', by: ['you'] },
+  { from: 'needs_hand', to: 'approved', by: ['you'] },
+  { from: 'needs_hand', to: 'applied', by: ['you', 'agent'] },
   // The posting was taken down, at any stage before applied
   ...CLOSABLE_BY_PIPELINE.map((from): Move => ({ from, to: 'closed', by: ['pipeline'] })),
   { from: 'filling', to: 'closed', by: ['agent'] },
   // After applying
   { from: 'applied', to: 'assessment', by: ['you', 'mail'] },
+  // An interview invite with no assessment first (#26)
+  { from: 'applied', to: 'interview', by: ['you', 'mail'] },
   { from: 'assessment', to: 'interview', by: ['you', 'mail'] },
   { from: 'interview', to: 'offer', by: ['you'] },
   // Rejected and withdrawn can follow any stage from applied on
