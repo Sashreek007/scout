@@ -1,0 +1,42 @@
+{
+  "triage": {
+    "greenhouse:northwind:4100001": {
+      "decision": "apply",
+      "score": 82,
+      "reasons": [
+        "Backend internship in Toronto for Winter 2027",
+        "Go and observability match mint",
+        "No citizenship clause"
+      ],
+      "lead": "backend",
+      "flags": []
+    },
+    "greenhouse:northwind:4100002": {
+      "decision": "skip",
+      "score": 12,
+      "reasons": ["Senior full-time role asking for 7+ years"],
+      "lead": "backend",
+      "flags": []
+    }
+  },
+  "plan": {
+    "greenhouse:northwind:4100001": {
+      "fields": [
+        {
+          "fieldId": "question_1002",
+          "kind": "draft",
+          "value": "Northwind builds the robots I would most want to keep running.",
+          "evidence": null,
+          "note": "Drafted from the posting; he edits it."
+        },
+        {
+          "fieldId": "question_1003",
+          "kind": "unknown",
+          "value": null,
+          "evidence": null,
+          "note": "Not in the profile or memory."
+        }
+      ]
+    }
+  }
+}

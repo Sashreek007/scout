@@ -1,0 +1,13 @@
+{
+  "name": "@scout/adapters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Code that talks to the outside world: sources, form readers, the Firestore store, notifiers and Claude.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@scout/core": "workspace:*"
+  }
+}

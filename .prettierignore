@@ -1,0 +1,12 @@
+# Written by hand or by the design generators; formatting them would churn the diff.
+docs/
+design/
+profile/
+sources/
+README.md
+
+# Generated or external
+pnpm-lock.yaml
+coverage/
+**/fixtures/
+.firebase/
