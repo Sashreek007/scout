@@ -9,6 +9,7 @@ const listing = {
   rawTerm: 'Winter 2027',
   terms: ['Winter 2027'],
   applyUrl: 'https://job-boards.greenhouse.io/northwind/jobs/4100001',
+  sourceUrl: 'https://go.vansh.nyc/abc',
   unresolvedUrl: false,
   postedAt: '2026-11-01T00:00:00Z',
   description: null,
@@ -25,6 +26,11 @@ describe('ListingSchema', () => {
     const result = ListingSchema.safeParse({ ...listing, applyUrl: 'not a url' });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.path).toEqual(['applyUrl']);
+  });
+
+  it('requires the link as the source listed it', () => {
+    const { sourceUrl: _omitted, ...withoutSource } = listing;
+    expect(ListingSchema.safeParse(withoutSource).success).toBe(false);
   });
 
   it('rejects a term it cannot be sure of; that stays in rawTerm', () => {

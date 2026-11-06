@@ -20,10 +20,22 @@ import type {
   Triage,
 } from './schemas';
 
-/** A place postings come from: a GitHub list or a job board's public feed. */
+/** What one source produced in one fetch: its valid listings, and how many raw rows it read. */
+export interface SourceBatch {
+  listings: Listing[];
+  /** Raw rows read before validation. */
+  fetched: number;
+  /** Rows that failed validation and were skipped. */
+  invalid: number;
+}
+
+/**
+ * A place postings come from: a GitHub list or a job board's public feed. `fetch` throws when the
+ * source can't be read at all; the collect step records that and carries on with the others.
+ */
 export interface JobSource {
   id: string;
-  fetch(): Promise<Listing[]>;
+  fetch(): Promise<SourceBatch>;
 }
 
 /** Reads an application form before any browser opens, where the board allows it. */
