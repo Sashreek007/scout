@@ -182,7 +182,7 @@ Checked live on November 5, 2026.
 | Lever board | `api.lever.co/v0/postings/{token}?mode=json` | Per company |
 | Ashby board | `api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true` | Per company |
 
-About 134 postings are in both GitHub lists, so together they hold roughly 520 unique Canadian postings. The vansh list uses short links that the collector has to follow to find the real apply URL.
+About 134 postings are in both GitHub lists, so together they hold roughly 520 unique Canadian postings. The vansh list uses short links that the collector has to follow to find the real apply URL; each is followed once and the result is kept on the job. vansh also lists a season with no year, like "Summer", so a term is set only for seasons `sources/sources.yaml` marks as certain: Summer means Summer 2027 in a Summer 2027 list, and the other seasons stay raw.
 
 The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's listings or already stored on a job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
 
