@@ -28,7 +28,7 @@ export interface FakeJobBoard {
   /** The user agent of every request, in the same order as `requests`. */
   userAgents: string[];
   /** The fake URL for a real one: `https://api.lever.co/v0/x` becomes `{url}/api.lever.co/v0/x`. */
-  rewrite(realUrl: string): string;
+  rewrite: (realUrl: string) => string;
   /**
    * Answers the next requests to a path (or a real URL's path) with these responses, in order.
    * Once they run out, the path is served from its fixture again.
