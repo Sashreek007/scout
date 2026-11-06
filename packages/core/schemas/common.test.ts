@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AnswerValueSchema,
   DESCRIPTION_MAX_BYTES,
   DescriptionSchema,
   JobKeySchema,
@@ -60,6 +61,16 @@ describe('DescriptionSchema', () => {
     // é is two bytes in UTF-8, so half as many characters already reach the cap.
     expect(DescriptionSchema.safeParse('é'.repeat(DESCRIPTION_MAX_BYTES / 2 + 1)).success).toBe(
       false,
+    );
+  });
+});
+
+describe('AnswerValueSchema', () => {
+  it('takes text or a list of texts, and says what is wrong otherwise', () => {
+    expect(AnswerValueSchema.parse(['Toronto', 'Remote'])).toEqual(['Toronto', 'Remote']);
+    expect(AnswerValueSchema.safeParse(undefined).error?.issues[0]?.message).toBe('required');
+    expect(AnswerValueSchema.safeParse(3).error?.issues[0]?.message).toBe(
+      'expected text, or a list of texts for a multi-select',
     );
   });
 });

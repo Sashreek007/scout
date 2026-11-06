@@ -47,5 +47,8 @@ export const DescriptionSchema = z
   );
 
 /** An answer is one string, or several for a multi-select. */
-export const AnswerValueSchema = z.union([z.string(), z.array(z.string())]);
+export const AnswerValueSchema = z.union([z.string(), z.array(z.string())], {
+  error: (issue) =>
+    issue.input === undefined ? 'required' : 'expected text, or a list of texts for a multi-select',
+});
 export type AnswerValue = z.infer<typeof AnswerValueSchema>;

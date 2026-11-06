@@ -4,5 +4,6 @@
 //   store/    FirestoreStore (#2)
 //   notify/   MacNotifier, PushNotifier (#12)
 //   llm/      ClaudeTriage (#9), ClaudePlanner (#17)
+export { connectFirestore } from './store/connect';
 export { clearEmulator, emulatorFirestore } from './store/emulator';
 export { FirestoreStore, fromFirestore } from './store/firestore-store';
