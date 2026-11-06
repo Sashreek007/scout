@@ -4,6 +4,13 @@
 //   store/    FirestoreStore (#2)
 //   notify/   MacNotifier, PushNotifier (#12)
 //   llm/      ClaudeTriage (#9), ClaudePlanner (#17)
+export { HttpError, USER_AGENT, createHttpClient, type HttpClient } from './http/http-client';
+export { createLinkResolver, type LinkResolver } from './http/link-resolver';
+export {
+  GitHubListSource,
+  type GitHubListConfig,
+  type GitHubListDeps,
+} from './sources/github-list-source';
 export { connectFirestore } from './store/connect';
 export { clearEmulator, emulatorFirestore } from './store/emulator';
 export { FirestoreStore, fromFirestore } from './store/firestore-store';
