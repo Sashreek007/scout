@@ -5,6 +5,7 @@ export * from './schemas';
 export {
   ACTORS,
   CREATORS,
+  DASHBOARD_MOVES,
   FINAL_STAGES,
   IllegalMoveError,
   MOVES,

@@ -649,7 +649,7 @@ The dashboard uses the web SDK and goes through the rules:
 
 - Every request has to come from his Google account's user ID.
 - The dashboard can't write `lease`, `submitAttemptAt`, `submittedAt` or anything in `counters`. Those belong to the agent.
-- The dashboard can move an application only along the moves a person makes: answer, approve, skip, retry, confirm a submission from `needs_hand`, and the stages after applying.
+- The dashboard can move an application only along the moves a person makes: answer, approve, skip, retry, hand an application in `needs_hand` back to the agents or confirm it went in, and the stages after applying. `DASHBOARD_MOVES` in `packages/core/stages.ts` lists them, and the rules test checks the rules allow exactly those.
 - Each stage change writes its event in the same batch, which the rules check with `existsAfter`, and the move's time must be within minutes of the request. Events are never changed or deleted.
 - The dashboard can queue a job, creating its application in `queued` with its first event, but can't write `jobs`, `runs` or `counters`, or delete an application.
 - Every other client write is denied until the feature that needs it adds a rule and its test.

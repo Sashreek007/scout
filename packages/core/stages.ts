@@ -91,6 +91,25 @@ export const MOVES: readonly Move[] = [
   ...AFTER_APPLYING.map((from): Move => ({ from, to: 'withdrawn', by: ['you'] })),
 ];
 
+/**
+ * Moves by `you` that the scout server on the Mac writes for him, never the dashboard: going back
+ * to filling after he fixed the page at the Mac, and the agent recording his own click on Submit.
+ */
+const RECORDED_BY_SERVER: readonly (readonly [Stage, Stage])[] = [
+  ['needs_hand', 'filling'],
+  ['filling', 'applied'],
+];
+
+/**
+ * The stage moves the dashboard may write. firebase/firestore.rules allows exactly these, and its
+ * test checks the two stay the same.
+ */
+export const DASHBOARD_MOVES: readonly { from: Stage; to: Stage }[] = MOVES.filter(
+  (move) =>
+    move.by.includes('you') &&
+    !RECORDED_BY_SERVER.some(([from, to]) => move.from === from && move.to === to),
+).map(({ from, to }) => ({ from, to }));
+
 /** An application is created in `queued`, by him or by the pipeline's auto rule. */
 export const CREATORS: readonly Actor[] = ['you', 'pipeline'];
 

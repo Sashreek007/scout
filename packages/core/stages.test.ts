@@ -5,6 +5,7 @@ import { ApplicationSchema, type Application } from './schemas';
 import {
   ACTORS,
   CREATORS,
+  DASHBOARD_MOVES,
   FINAL_STAGES,
   IllegalMoveError,
   MOVES,
@@ -230,5 +231,33 @@ describe('eventId', () => {
     expect(created).toBe(`${AT.getTime()}_new_queued`);
     expect(later > created).toBe(true);
     expect(later).toBe(`${AT.getTime() + 1}_queued_planning`);
+  });
+});
+
+describe('DASHBOARD_MOVES', () => {
+  it('is every move a person makes, except the two the server records for him', () => {
+    expect(DASHBOARD_MOVES.map(({ from, to }) => `${from}>${to}`).sort()).toEqual(
+      [
+        'needs_answers>review',
+        'review>approved',
+        'review>skipped',
+        'failed>approved',
+        'failed>queued',
+        'needs_hand>approved',
+        'needs_hand>applied',
+        'applied>assessment',
+        'applied>interview',
+        'assessment>interview',
+        'interview>offer',
+        ...['applied', 'assessment', 'interview', 'offer'].flatMap((from) => [
+          `${from}>rejected`,
+          `${from}>withdrawn`,
+        ]),
+      ].sort(),
+    );
+  });
+
+  it('only holds moves the table lets you make', () => {
+    for (const { from, to } of DASHBOARD_MOVES) expect(canMove(from, to, 'you')).toBe(true);
   });
 });

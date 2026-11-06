@@ -7,7 +7,14 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { STAGES, eventId, type Application, type Stage, type StageEvent } from '@scout/core';
+import {
+  DASHBOARD_MOVES,
+  STAGES,
+  eventId,
+  type Application,
+  type Stage,
+  type StageEvent,
+} from '@scout/core';
 import { aCreationEvent, aJob, anApplication, aRun } from '@scout/testkit';
 import {
   deleteDoc,
@@ -22,23 +29,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const rules = readFileSync(new URL('./firestore.rules', import.meta.url), 'utf8');
 const OWNER = /return '([^']+)';\s*\/\/ owner uid/.exec(rules)?.[1] ?? '';
-
-/** The moves a person makes from the dashboard (#3), and nothing else. */
-const DASHBOARD_MOVES: [Stage, Stage][] = [
-  ['needs_answers', 'review'],
-  ['review', 'approved'],
-  ['review', 'skipped'],
-  ['failed', 'approved'],
-  ['needs_hand', 'applied'],
-  ['needs_hand', 'approved'],
-  ['applied', 'assessment'],
-  ['assessment', 'interview'],
-  ['interview', 'offer'],
-  ...(['applied', 'assessment', 'interview', 'offer'] as const).flatMap((from) => [
-    [from, 'rejected'] as [Stage, Stage],
-    [from, 'withdrawn'] as [Stage, Stage],
-  ]),
-];
 
 let env: RulesTestEnvironment;
 let owner: Firestore;
@@ -215,7 +205,8 @@ describe('what the dashboard may write', () => {
 
 describe('stage moves from the dashboard', () => {
   it('allows exactly the moves a person makes, each with its event, and no others', async () => {
-    const allowed = new Set(DASHBOARD_MOVES.map(([from, to]) => `${from}>${to}`));
+    // The rules must allow exactly the dashboard moves the stage table defines.
+    const allowed = new Set(DASHBOARD_MOVES.map(({ from, to }) => `${from}>${to}`));
     const outcomes: string[] = [];
     for (const from of STAGES) {
       for (const to of STAGES) {

@@ -19,16 +19,17 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == ownerUid();
     }
 
-    // The stage moves a person makes from the dashboard: answer, approve, skip, retry, confirm a
-    // submission, and the moves after applying. Everything else belongs to the pipeline, the agent
-    // or the mail watcher.
+    // The stage moves a person makes from the dashboard: answer, approve, skip, retry, hand back to
+    // the agents, confirm a submission, and the moves after applying. Everything else belongs to the
+    // pipeline, the agent or the mail watcher. Must equal DASHBOARD_MOVES in packages/core/stages.ts;
+    // the rules test checks it.
     function dashboardMoves() {
       return {
         'needs_answers': ['review'],
         'review': ['approved', 'skipped'],
-        'failed': ['approved'],
+        'failed': ['approved', 'queued'],
         'needs_hand': ['applied', 'approved'],
-        'applied': ['assessment', 'rejected', 'withdrawn'],
+        'applied': ['assessment', 'interview', 'rejected', 'withdrawn'],
         'assessment': ['interview', 'rejected', 'withdrawn'],
         'interview': ['offer', 'rejected', 'withdrawn'],
         'offer': ['rejected', 'withdrawn']
