@@ -16,12 +16,14 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "dev": "firebase emulators:exec --config firebase/firebase.json --project demo-scout --only firestore,auth --ui \"tsx scripts/dev.ts\"",
+    "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-scout --only firestore,auth",
     "commitlint": "commitlint"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/js": "10.0.1",
+    "@firebase/rules-unit-testing": "6.0.0",
     "@scout/adapters": "workspace:*",
     "@scout/core": "workspace:*",
     "@scout/testkit": "workspace:*",
@@ -30,6 +32,7 @@
     "eslint": "10.14.0",
     "eslint-config-prettier": "10.1.8",
     "fast-check": "4.10.2",
+    "firebase": "13.2.0",
     "firebase-admin": "14.5.0",
     "firebase-tools": "15.35.0",
     "globals": "17.14.0",
