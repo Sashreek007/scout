@@ -16,6 +16,11 @@ export const ListingSchema = z.strictObject({
   /** Terms scout is sure of. Empty when the year or season is unknown. */
   terms: z.array(TermSchema),
   applyUrl: z.url(),
+  /**
+   * The link exactly as the source listed it, like a vansh short link. It equals `applyUrl` unless
+   * a short link was followed, and lets a followed link be cached on the job (#5).
+   */
+  sourceUrl: z.url(),
   /** True when a short link couldn't be followed to the real apply URL. */
   unresolvedUrl: z.boolean(),
   postedAt: TimestampSchema.nullable(),

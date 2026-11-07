@@ -1,14 +1,20 @@
-# Job sources scout polls. Verified working 2026-11-05.
+# Job sources scout polls. Verified working 2026-11-05. Checked by apps/pipeline/src/config/sources.ts.
 github_lists:
-  - repo: SimplifyJobs/Summer2027-Internships
+  - name: simplify
+    repo: SimplifyJobs/Summer2027-Internships
     path: .github/scripts/listings.json
     branch: dev
+    fallback_branch: main
     term_field: terms
-  - repo: vanshb03/Summer2027-Internships
+  - name: vansh
+    repo: vanshb03/Summer2027-Internships
     path: .github/scripts/listings.json
     branch: dev
-    term_field: season
-    resolve_short_links: true
+    fallback_branch: main
+    term_field: season          # a season with no year, like "Summer"
+    resolve_short_links: true   # its links are go.vansh.nyc short links
+    certain_years:
+      Summer: 2027              # this is the Summer 2027 list; other seasons' years aren't certain
 
 ats_feeds:
   greenhouse: https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true

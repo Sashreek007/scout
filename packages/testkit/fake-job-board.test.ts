@@ -42,6 +42,46 @@ describe('the fake job board', () => {
     expect(board.requests).toContain('/api.lever.co/v0/postings/nobody');
   });
 
+  it('serves a gzipped fixture decompressed, under its real path', async () => {
+    const res = await fetch(
+      board.rewrite(
+        'https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/.github/scripts/listings.json',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const rows = (await res.json()) as unknown[];
+    expect(rows).toHaveLength(3021);
+  });
+
+  it('plays scripted responses in order, then falls back to the fixture', async () => {
+    const real = 'https://boards-api.greenhouse.io/v1/boards/northwind/jobs';
+    board.script(real, [
+      { status: 503 },
+      { status: 302, headers: { location: 'https://example.com/moved' } },
+    ]);
+    const first = await fetch(board.rewrite(real));
+    const second = await fetch(board.rewrite(real), { redirect: 'manual' });
+    const third = await fetch(board.rewrite(real));
+    expect([first.status, second.status, third.status]).toEqual([503, 302, 200]);
+    expect(second.headers.get('location')).toBe('https://example.com/moved');
+  });
+
+  it('can delay a scripted response, to test timeouts', async () => {
+    board.script('/slow/thing', [{ status: 200, body: 'late', delayMs: 300 }]);
+    const started = Date.now();
+    const res = await fetch(`${board.url}/slow/thing`);
+    expect(await res.text()).toBe('late');
+    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+  });
+
+  it('records the user agent of every request', async () => {
+    await fetch(`${board.url}/anything`, {
+      headers: { 'user-agent': 'scout/0.1 (personal job search)' },
+    });
+    expect(board.userAgents.at(-1)).toBe('scout/0.1 (personal job search)');
+  });
+
   it('never serves a file outside the fixtures folder', async () => {
     const res = await fetch(`${board.url}/..%2f..%2fpackage.json`);
     expect(res.status).toBe(404);
