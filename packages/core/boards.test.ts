@@ -187,7 +187,7 @@ function aStoredJob(overrides: Partial<Job>): Job {
 describe('boardsToPoll', () => {
   const configured = { greenhouse: ['tribalscale'], lever: ['eqbank'], ashby: ['cohere'] };
 
-  it('is the union of the file, the tokens in this run’s listings and the tokens on stored jobs', () => {
+  it("is the union of the file, the tokens in this run's listings and the tokens on stored jobs", () => {
     const boards = boardsToPoll({
       configured,
       listings: [

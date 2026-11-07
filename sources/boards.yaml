@@ -1,4 +1,6 @@
-# Company board tokens. scout appends to this from GitHub listing URLs; add companies by hand too.
+# Boards every run polls, by their token on each ATS. Each run also polls every board its GitHub
+# listings and stored jobs point at, but scout never writes to this file: add companies by hand.
+# Checked by apps/pipeline/src/config/boards.ts.
 greenhouse: [tribalscale]
 lever: [eqbank]
 ashby: [cohere]

@@ -80,7 +80,7 @@ describe('the board sources', () => {
     expect(down?.message).toContain('answered 503');
   });
 
-  it('skips a board whose answer is not that board’s feed', async () => {
+  it("skips a board whose answer is not that board's feed", async () => {
     board.script(feed('ashby', 'odd'), [{ status: 200, body: '{"surprise":true}' }]);
     const [, , ashby] = await fetchAll([ref('ashby', 'odd'), ref('ashby', 'cohere')]);
     expect(ashby?.skipped).toEqual([

@@ -186,6 +186,14 @@ About 134 postings are in both GitHub lists, so together they hold roughly 520 u
 
 The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's listings or already stored on a job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
 
+How the boards are read (#6):
+
+- **Tokens.** They come from four URL shapes: `job-boards.greenhouse.io/{token}/jobs/{id}`, `boards.greenhouse.io/{token}/jobs/{id}`, `jobs.lever.co/{token}/{id}` and `jobs.ashbyhq.com/{token}/{id}`. Most real Lever links end in `/apply` and most Ashby links in `/application`, so those endings are read too. Any other shape is ignored, including the EU hosts. Greenhouse and Ashby ignore a token's case, so scout lowercases those tokens. Lever doesn't: `api.lever.co` answers 404 for `EQBank` and 200 for `eqbank`. Lever tokens stay as written.
+- **Student roles.** A title counts if it says intern, internship, co-op, coop or student, or names a season with a year like "Winter 2027". That season and year also become the listing's term.
+- **Requests.** At most 4 board requests run at once across all three ATSs. Each gets 20 seconds and one retry. A board that answers 404 or can't be read is skipped and noted in the run, and the other boards carry on. An ATS fails as a whole only when none of its boards could be read and at least one failure wasn't a 404.
+- **Links.** scout builds the apply URL from the token and posting ID instead of taking it from the feed. A board posting then gets the same job key as the same posting in a GitHub list, even when a company points its Greenhouse links at its own careers page.
+- **Size.** The Simplify list saved on November 5, 2026 names 486 boards: 222 on Greenhouse, 62 on Lever and 202 on Ashby.
+
 ### Jobs he adds himself
 
 scout doesn't watch LinkedIn, so when Sashreek finds a job anywhere, he gives scout the link. The job joins his list and then goes through the same steps as every other job: read the form, plan the answers, tailor the resume, his approval, and an agent applying on the company's own site. Issue #60.
