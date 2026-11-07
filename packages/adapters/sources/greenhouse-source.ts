@@ -7,7 +7,8 @@ const GreenhouseJobSchema = z.looseObject({
   title: z.string().trim().min(1),
   company_name: z.string().trim().min(1).nullish(),
   location: z.looseObject({ name: z.string().nullish() }).nullish(),
-  absolute_url: z.url().nullish(),
+  /** Not checked as a URL: scout builds its own apply URL, so a bad one costs nothing. */
+  absolute_url: z.string().nullish(),
   first_published: z.string().nullish(),
   updated_at: z.string().nullish(),
   /** The posting's HTML, itself escaped: `&lt;p&gt;` for `<p>`. */

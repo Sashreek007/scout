@@ -42,7 +42,7 @@ export interface BoardPosting {
   company: string | null;
   title: string;
   locations: string[];
-  /** The posting's apply link as the feed gave it. */
+  /** The posting's apply link as the feed gave it, which may not be a valid URL. */
   url: string | null;
   postedAt: Date | null;
   description: string | null;
@@ -59,6 +59,8 @@ export interface BoardFeed<Row> {
   /** Null for a posting the board doesn't show, like an unlisted Ashby job. */
   posting(row: Row): BoardPosting | null;
 }
+
+const SourceUrlSchema = ListingSchema.shape.sourceUrl;
 
 type BoardResult =
   | { ok: true; fetched: number; invalid: number; listings: Listing[] }
@@ -169,7 +171,10 @@ export class BoardSource<Row> implements JobSource {
       // Built from the board, not taken from the feed, so it matches the GitHub lists' links and
       // gives the same job key (#7), even when a company sends Greenhouse links to its own site.
       applyUrl,
-      sourceUrl: posting.url ?? applyUrl,
+      sourceUrl:
+        posting.url !== null && SourceUrlSchema.safeParse(posting.url).success
+          ? posting.url
+          : applyUrl,
       unresolvedUrl: false,
       postedAt: posting.postedAt,
       description: description === '' ? null : description,

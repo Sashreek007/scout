@@ -84,6 +84,16 @@ describe('GreenhouseSource', () => {
     });
   });
 
+  it('keeps a posting whose own link is malformed, since scout builds the apply URL', async () => {
+    serve('acme', [job({ absolute_url: '/careers/7000001' })]);
+    const batch = await source([{ ats: 'greenhouse', token: 'acme', company: null }]).fetch();
+    expect(batch.invalid).toBe(0);
+    expect(batch.listings[0]).toMatchObject({
+      applyUrl: 'https://job-boards.greenhouse.io/acme/jobs/7000001',
+      sourceUrl: 'https://job-boards.greenhouse.io/acme/jobs/7000001',
+    });
+  });
+
   it('keeps only student roles', async () => {
     serve('acme', [
       job({ id: 1, title: 'Software Engineering Intern' }),

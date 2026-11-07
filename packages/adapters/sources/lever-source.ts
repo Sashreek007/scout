@@ -14,8 +14,8 @@ const LeverPostingSchema = z.looseObject({
       allLocations: z.array(z.string()).nullish(),
     })
     .nullish(),
-  hostedUrl: z.url().nullish(),
-  applyUrl: z.url().nullish(),
+  hostedUrl: z.string().nullish(),
+  applyUrl: z.string().nullish(),
   /** Milliseconds since 1970. */
   createdAt: z.number().nullish(),
   descriptionPlain: z.string().nullish(),
