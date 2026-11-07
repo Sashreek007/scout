@@ -25,6 +25,8 @@ export interface FakeJobBoard {
   url: string;
   /** Every path requested, in order, so a test can check what was fetched. */
   requests: string[];
+  /** Every request's path with its query string, in the same order as `requests`. */
+  requestUrls: string[];
   /** The user agent of every request, in the same order as `requests`. */
   userAgents: string[];
   /** The fake URL for a real one: `https://api.lever.co/v0/x` becomes `{url}/api.lever.co/v0/x`. */
@@ -34,6 +36,8 @@ export interface FakeJobBoard {
    * Once they run out, the path is served from its fixture again.
    */
   script(pathOrUrl: string, responses: FakeResponse[]): void;
+  /** The most requests the board was answering at once, so a test can check a concurrency limit. */
+  peakInFlight(): number;
   close(): Promise<void>;
 }
 
@@ -48,13 +52,23 @@ export async function startFakeJobBoard(
 ): Promise<FakeJobBoard> {
   const root = options.root ?? fileURLToPath(new URL('board/', FIXTURES_DIR));
   const requests: string[] = [];
+  const requestUrls: string[] = [];
   const userAgents: string[] = [];
   const scripts = new Map<string, FakeResponse[]>();
+  let inFlight = 0;
+  let peak = 0;
 
   const server = createServer((req, res) => {
-    const path = decodeURIComponent(new URL(req.url ?? '/', 'http://fake').pathname);
+    const requested = new URL(req.url ?? '/', 'http://fake');
+    const path = decodeURIComponent(requested.pathname);
     requests.push(path);
+    requestUrls.push(`${path}${requested.search}`);
     userAgents.push(req.headers['user-agent'] ?? '');
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    res.once('close', () => {
+      inFlight -= 1;
+    });
 
     const scripted = scripts.get(path)?.shift();
     if (scripted) {
@@ -94,6 +108,7 @@ export async function startFakeJobBoard(
   return {
     url,
     requests,
+    requestUrls,
     userAgents,
     rewrite: (realUrl) => {
       const real = new URL(realUrl);
@@ -103,6 +118,7 @@ export async function startFakeJobBoard(
       const path = pathOf(pathOrUrl);
       scripts.set(path, [...(scripts.get(path) ?? []), ...responses]);
     },
+    peakInFlight: () => peak,
     close: () => close(server),
   };
 }
