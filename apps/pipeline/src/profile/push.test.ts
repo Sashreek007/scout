@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { questionKey } from '@scout/core';
 import { InMemoryStore } from '@scout/testkit';
@@ -104,6 +104,50 @@ describe('pnpm scout profile push', () => {
     const store = new InMemoryStore();
     await pushProfile(store, files);
     expect(await store.memory.list()).toEqual([]);
+  });
+
+  it('reads a missing answers.yaml as no answers and keeps the memory already in Firestore', async () => {
+    const files = writeProfileFiles();
+    const store = new InMemoryStore();
+    await pushProfile(store, files);
+    rmSync(files.answers);
+
+    const report = await pushProfile(store, files);
+    expect(report.memory).toEqual([]);
+    expect(await store.profile.get()).not.toBeNull();
+    expect(await store.memory.list()).toHaveLength(2);
+  });
+
+  it('reads the shipped answers.example.yaml as no answers, and its example entry is valid', async () => {
+    const template = readFileSync(
+      new URL('../../../../profile/answers.example.yaml', import.meta.url),
+      'utf8',
+    );
+    const asShipped = writeProfileFiles(PROFILE_YAML, template);
+    expect((await pushProfile(new InMemoryStore(), asShipped, { dryRun: true })).memory).toEqual([]);
+
+    const example = template
+      .split('\n')
+      .filter((line) => /^# (- | {2})\w+:/.test(line))
+      .map((line) => line.slice(2))
+      .join('\n');
+    const uncommented = writeProfileFiles(PROFILE_YAML, example);
+    expect((await pushProfile(new InMemoryStore(), uncommented, { dryRun: true })).memory).toEqual([
+      '+ Are you willing to work in office 3 days a week?',
+    ]);
+  });
+
+  it('still fails when answers.yaml exists but cannot be read', async () => {
+    const files = writeProfileFiles();
+    rmSync(files.answers);
+    mkdirSync(files.answers);
+    await expect(pushProfile(new InMemoryStore(), files)).rejects.toMatchObject({ code: 'EISDIR' });
+  });
+
+  it('still fails when profile.yaml is missing', async () => {
+    const files = writeProfileFiles();
+    rmSync(files.profile);
+    await expect(pushProfile(new InMemoryStore(), files)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('with --dry-run, reports what would change and writes nothing', async () => {

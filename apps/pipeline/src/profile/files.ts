@@ -18,7 +18,10 @@ import {
 import { parse } from 'yaml';
 import { z } from 'zod';
 
-/** Where the seed files are. The defaults are `profile/profile.yaml` and `profile/answers.yaml`. */
+/**
+ * Where the seed files are. The defaults are `profile/profile.yaml` and `profile/answers.yaml`,
+ * both gitignored; `profile/*.example.yaml` are the templates. A missing answers file means no answers.
+ */
 export interface ProfilePaths {
   profile: string;
   answers: string;
@@ -61,7 +64,7 @@ export async function readSeedFiles(paths: ProfilePaths): Promise<SeedFiles> {
   );
   const seeds = parseWith(
     z.array(MemorySeedSchema),
-    (await readYaml(paths.answers)) ?? [],
+    (await readOptionalYaml(paths.answers)) ?? [],
     answersName,
     problems,
   );
@@ -91,6 +94,19 @@ export async function readSeedFiles(paths: ProfilePaths): Promise<SeedFiles> {
 
 async function readYaml(path: string): Promise<unknown> {
   return parse(await readFile(path, 'utf8')) as unknown;
+}
+
+/**
+ * Like readYaml, but a file that doesn't exist reads as empty. answers.yaml is gitignored, so a
+ * fresh checkout has none, and push never deletes memory, so no file means nothing to add.
+ */
+async function readOptionalYaml(path: string): Promise<unknown> {
+  try {
+    return await readYaml(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 function parseWith<S extends z.ZodType>(

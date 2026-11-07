@@ -1,0 +1,9 @@
+# Template. Copy to answers.yaml (gitignored) and add answers he has already decided on.
+# `pnpm scout profile push` adds them to Firestore's memory, so scout never asks them again.
+# Answers he gives later in the dashboard go straight to Firestore, not to this file.
+# No answers.yaml is fine: push reads it as no answers and never deletes memory.
+#
+# - question: "Are you willing to work in office 3 days a week?"
+#   answer: "Yes"
+#   kind: preference      # fact (the default) or preference
+#   source: answers.yaml  # where the answer came from

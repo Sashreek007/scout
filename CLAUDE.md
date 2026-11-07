@@ -42,7 +42,7 @@ Read before changing anything:
 - **An application's stage changes only through the stage machine**, with its event in the same write.
 - **Emulator tests** are named `*.emulator.test.ts`. They refuse to run unless the emulator is up and the project starts with `demo-`.
 - **Secrets:** never read, print, log or commit one. `.env` is gitignored and `.env.example` lists every variable with no values (a test enforces it). Never create accounts or cloud projects, and never handle API keys: ask Sashreek.
-- **`profile/profile.yaml` holds his real data** and is gitignored. Never commit it, paste it into an issue or pull request, or log it.
+- **`profile/profile.yaml` and `profile/answers.yaml` hold his real data** and are gitignored; only the `*.example.yaml` templates are tracked. Never commit them, paste them into an issue or pull request, or log them.
 - Claude models: Haiku 5.5 (`claude-haiku-5-5`) and Sonnet 5.5 (`claude-sonnet-5-5`) by default, Opus 5.5 (`claude-opus-5-5`) only as a fallback. Settings in `config/models` decide per task.
 
 ## How an issue becomes a merged pull request
