@@ -108,7 +108,7 @@ scout is a **pipeline with a state machine, and adapters for each job board**. T
 **Adapters at the edges.** Code that talks to the outside sits behind small interfaces called ports, in `packages/core/ports.ts`. Each job board gets its own adapter. The core never imports Playwright, Firestore or the Anthropic SDK, so it is tested without a network.
 
 ```ts
-interface JobSource  { id: string; fetch(): Promise<SourceBatch> }   // listings, plus fetched and invalid counts
+interface JobSource  { id: string; fetch(): Promise<SourceBatch> }   // listings, fetched and invalid counts, and what was skipped
 interface FormReader { canRead(job: Job): boolean; read(job: Job): Promise<FormSpec> }
 interface FormFiller { canFill(app: Application): boolean; fill(page: Page, sheet: Sheet): Promise<FillReport>; submit(page: Page): Promise<SubmitResult> }
 interface Store      { /* jobs, applications, questions, memory, profile, runs */ }

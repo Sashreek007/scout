@@ -93,6 +93,7 @@ export class GitHubListSource implements JobSource {
       listings: this.#config.resolveShortLinks ? await this.#followLinks(listings) : listings,
       fetched: raw.length,
       invalid,
+      skipped: [],
     };
   }
 

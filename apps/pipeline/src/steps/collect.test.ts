@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { loadSources } from '../config/sources';
 import { collect, knownShortLinks } from './collect';
 
-const batch: SourceBatch = { listings: [], fetched: 3, invalid: 1 };
+const batch: SourceBatch = { listings: [], fetched: 3, invalid: 1, skipped: [] };
 const ok = (id: string): JobSource => ({ id, fetch: () => Promise.resolve(batch) });
 const broken = (id: string): JobSource => ({
   id,
