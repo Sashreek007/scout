@@ -106,7 +106,8 @@ collect ──> normalize + dedupe ──> hard filters ──> triage (Claude) 
 ## 5. The profile
 
 - `profile/profile.yaml`: hard facts for every form field (gitignored).
-- `profile/answers.yaml`: answers to questions he has already been asked.
+- `profile/answers.yaml`: answers to questions he has already been asked (gitignored; the
+  template is `profile/answers.example.yaml`).
 - Resumes: PDFs per role type, chosen by triage.
 - Free-text questions ("why this company") are drafted from the profile and posting, then sent to
   him for approval. Nothing outside the profile gets stated as fact.

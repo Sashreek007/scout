@@ -805,7 +805,7 @@ scout/
 │   └── testkit/                   InMemoryStore, FakeLlm, saved feeds, forms and job descriptions
 ├── evals/                         case sets with his labels, thresholds.yaml, results/
 ├── firebase/                      firestore.rules, firestore.indexes.json, firebase.json
-├── profile/                       seed files, imported into Firestore once
+├── profile/                       seed files, imported into Firestore once; only the *.example.yaml templates are tracked
 ├── resume/                        base resume templates and the knowledge base seed importer
 ├── skills/                        one file per job board: how its forms behave and their known traps
 ├── sources/                       sources.yaml and boards.yaml
