@@ -112,7 +112,7 @@ describe('AshbySource', () => {
   });
 
   it('reads the HTML description when there is no plain one', async () => {
-    serve([job({ descriptionPlain: null, descriptionHtml: '<p>Train <b>models</b>.</p>' })]);
+    serve([job({ descriptionPlain: ' ', descriptionHtml: '<p>Train <b>models</b>.</p>' })]);
     const [listing] = (await source([acme]).fetch()).listings;
     expect(listing?.description).toBe('Train models.');
   });

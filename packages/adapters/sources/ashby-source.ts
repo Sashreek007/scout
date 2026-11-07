@@ -1,11 +1,15 @@
-import { htmlToText } from '@scout/core';
+import { UUID_PATTERN, htmlToText } from '@scout/core';
 import { z } from 'zod';
-import { BoardSource, feedDate, type BoardFeed, type BoardSourceDeps } from './board-source';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  BoardSource,
+  feedDate,
+  jobsArray,
+  type BoardFeed,
+  type BoardSourceDeps,
+} from './board-source';
 
 const AshbyJobSchema = z.looseObject({
-  id: z.string().regex(UUID),
+  id: z.string().regex(UUID_PATTERN),
   title: z.string().trim().min(1),
   location: z.string().nullish(),
   secondaryLocations: z.array(z.looseObject({ location: z.string().nullish() })).nullish(),
@@ -30,10 +34,7 @@ function locations(job: AshbyJob): string[] {
 const ashbyFeed: BoardFeed<AshbyJob> = {
   ats: 'ashby',
   label: 'an Ashby job board',
-  rows: (body) => {
-    const jobs = (body as { jobs?: unknown } | null)?.jobs;
-    return Array.isArray(jobs) ? jobs : null;
-  },
+  rows: jobsArray,
   row: AshbyJobSchema,
   posting: (job) =>
     job.isListed === false
@@ -46,7 +47,9 @@ const ashbyFeed: BoardFeed<AshbyJob> = {
           locations: locations(job),
           url: job.applyUrl ?? job.jobUrl ?? null,
           postedAt: feedDate(job.publishedAt),
-          description: job.descriptionPlain ?? htmlToText(job.descriptionHtml ?? ''),
+          description: job.descriptionPlain?.trim()
+            ? job.descriptionPlain
+            : htmlToText(job.descriptionHtml ?? ''),
         },
 };
 

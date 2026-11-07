@@ -78,6 +78,7 @@ export function htmlToText(html: string): string {
       .replace(/<br\b[^>]*>/gi, '\n')
       .replace(/<li\b[^>]*>/gi, '\n- ')
       .replace(BLOCK, '\n\n')
+      .replace(/<\/t[dh]\s*>/gi, ' ')
       .replace(/<[^>]*>/g, ''),
   );
   return text

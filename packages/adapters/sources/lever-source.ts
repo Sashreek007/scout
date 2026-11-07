@@ -1,11 +1,9 @@
-import { htmlToText } from '@scout/core';
+import { UUID_PATTERN, htmlToText } from '@scout/core';
 import { z } from 'zod';
 import { BoardSource, feedDate, type BoardFeed, type BoardSourceDeps } from './board-source';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 const LeverPostingSchema = z.looseObject({
-  id: z.string().regex(UUID),
+  id: z.string().regex(UUID_PATTERN),
   /** The title. */
   text: z.string().trim().min(1),
   categories: z

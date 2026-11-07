@@ -66,6 +66,12 @@ type BoardResult =
   | { ok: true; fetched: number; invalid: number; listings: Listing[] }
   | { ok: false; skipped: SkippedTarget };
 
+/** The `jobs` array of a Greenhouse or Ashby answer, or null when there isn't one. */
+export function jobsArray(body: unknown): unknown[] | null {
+  const jobs = (body as { jobs?: unknown } | null)?.jobs;
+  return Array.isArray(jobs) ? (jobs as unknown[]) : null;
+}
+
 /** A date from a feed, or null when it is missing or can't be read. */
 export function feedDate(value: string | number | null | undefined): Date | null {
   if (value === null || value === undefined) return null;

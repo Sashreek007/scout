@@ -27,7 +27,8 @@ const IGNORES_CASE: Record<BoardAts, boolean> = { greenhouse: true, lever: false
 
 /** Letters, digits, `.`, `_` and `-`, with single spaces between words, like `hippocratic ai`. */
 const TOKEN = /^[\w.-]+(?: [\w.-]+)*$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A Lever or Ashby posting ID. */
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NUMBER = /^\d{1,20}$/;
 
 /**
@@ -49,11 +50,11 @@ function postingId(ats: BoardAts, rest: string[]): string | null {
     case 'greenhouse':
       return first === 'jobs' && second !== undefined && NUMBER.test(second) ? second : null;
     case 'lever':
-      return UUID.test(first) && (second === undefined || second === 'apply')
+      return UUID_PATTERN.test(first) && (second === undefined || second === 'apply')
         ? first.toLowerCase()
         : null;
     case 'ashby':
-      return UUID.test(first) && (second === undefined || second === 'application')
+      return UUID_PATTERN.test(first) && (second === undefined || second === 'application')
         ? first.toLowerCase()
         : null;
   }

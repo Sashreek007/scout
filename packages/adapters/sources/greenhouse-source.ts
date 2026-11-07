@@ -1,6 +1,12 @@
 import { decodeEntities, htmlToText } from '@scout/core';
 import { z } from 'zod';
-import { BoardSource, feedDate, type BoardFeed, type BoardSourceDeps } from './board-source';
+import {
+  BoardSource,
+  feedDate,
+  jobsArray,
+  type BoardFeed,
+  type BoardSourceDeps,
+} from './board-source';
 
 const GreenhouseJobSchema = z.looseObject({
   id: z.union([z.int().positive(), z.string().regex(/^\d+$/)]).transform(String),
@@ -19,10 +25,7 @@ type GreenhouseJob = z.infer<typeof GreenhouseJobSchema>;
 const greenhouseFeed: BoardFeed<GreenhouseJob> = {
   ats: 'greenhouse',
   label: 'a Greenhouse board',
-  rows: (body) => {
-    const jobs = (body as { jobs?: unknown } | null)?.jobs;
-    return Array.isArray(jobs) ? jobs : null;
-  },
+  rows: jobsArray,
   row: GreenhouseJobSchema,
   posting: (job) => ({
     id: job.id,

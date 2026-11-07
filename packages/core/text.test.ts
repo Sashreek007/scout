@@ -25,6 +25,12 @@ describe('htmlToText', () => {
     );
   });
 
+  it('keeps table cells apart', () => {
+    expect(htmlToText('<table><tr><th>City</th><td>Toronto</td></tr></table>')).toBe(
+      'City Toronto',
+    );
+  });
+
   it('gives an empty string for markup with no words', () => {
     expect(htmlToText('<div><br/></div>')).toBe('');
   });
