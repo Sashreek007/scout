@@ -1,7 +1,7 @@
 // Reads sources/sources.yaml: which lists and job-board feeds the daily run polls.
 import { readFile } from 'node:fs/promises';
 import type { GitHubListConfig } from '@scout/adapters';
-import { describeIssues } from '@scout/core';
+import { describeIssues, type BoardAts } from '@scout/core';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -16,15 +16,23 @@ const GitHubListEntrySchema = z.strictObject({
   certain_years: z.record(z.string().min(1), z.int().min(2020).max(2100)).default({}),
 });
 
+const FeedUrlSchema = z
+  .url({ protocol: /^https$/ })
+  .refine((url) => url.includes('{token}'), 'a feed URL has {token} where the board token goes');
+
 const SourcesFileSchema = z.strictObject({
   github_lists: z.array(GitHubListEntrySchema).min(1),
-  /** Job-board feed URLs by board, used by #6. */
-  ats_feeds: z.record(z.string(), z.string()).default({}),
+  /** Each ATS's public board feed (#6). */
+  ats_feeds: z.strictObject({
+    greenhouse: FeedUrlSchema,
+    lever: FeedUrlSchema,
+    ashby: FeedUrlSchema,
+  }),
 });
 
 export interface SourcesConfig {
   githubLists: GitHubListConfig[];
-  atsFeeds: Record<string, string>;
+  atsFeeds: Record<BoardAts, string>;
 }
 
 /** Reads and checks the file, naming every problem at once. */

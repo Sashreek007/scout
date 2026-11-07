@@ -20,6 +20,18 @@ import type {
   Triage,
 } from './schemas';
 
+/**
+ * A part of a source that couldn't be read this run, like one job board that answered 404. The rest
+ * of the batch is still good; the run log (#11) records each one.
+ */
+export interface SkippedTarget {
+  /** What was skipped, like `greenhouse:tribalscale`. */
+  target: string;
+  /** The HTTP status it answered with, or null for a timeout, the network or a bad body. */
+  status: number | null;
+  message: string;
+}
+
 /** What one source produced in one fetch: its valid listings, and how many raw rows it read. */
 export interface SourceBatch {
   listings: Listing[];
@@ -27,11 +39,13 @@ export interface SourceBatch {
   fetched: number;
   /** Rows that failed validation and were skipped. */
   invalid: number;
+  /** Parts of the source that couldn't be read, like a job board that is gone. */
+  skipped: SkippedTarget[];
 }
 
 /**
- * A place postings come from: a GitHub list or a job board's public feed. `fetch` throws when the
- * source can't be read at all; the collect step records that and carries on with the others.
+ * A place postings come from: a GitHub list, or one ATS's public board feeds. `fetch` throws when
+ * the source can't be read at all; the collect step records that and carries on with the others.
  */
 export interface JobSource {
   id: string;

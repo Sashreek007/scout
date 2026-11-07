@@ -54,6 +54,36 @@ describe('the fake job board', () => {
     expect(rows).toHaveLength(3021);
   });
 
+  it('serves the real tribalscale, eqbank and cohere boards at their API paths', async () => {
+    const get = async (url: string) => (await fetch(board.rewrite(url))).json();
+    const greenhouse = (await get(
+      'https://boards-api.greenhouse.io/v1/boards/tribalscale/jobs?content=true',
+    )) as { jobs: unknown[] };
+    const lever = (await get('https://api.lever.co/v0/postings/eqbank?mode=json')) as unknown[];
+    const ashby = (await get(
+      'https://api.ashbyhq.com/posting-api/job-board/cohere?includeCompensation=true',
+    )) as { jobs: unknown[] };
+    expect([greenhouse.jobs.length, lever.length, ashby.jobs.length]).toEqual([15, 82, 124]);
+  });
+
+  it('records each request with its query string', async () => {
+    await fetch(board.rewrite('https://api.lever.co/v0/postings/eqbank?mode=json'));
+    expect(board.requests.at(-1)).toBe('/api.lever.co/v0/postings/eqbank');
+    expect(board.requestUrls.at(-1)).toBe('/api.lever.co/v0/postings/eqbank?mode=json');
+  });
+
+  it('counts the most requests it answered at once', async () => {
+    const own = await startFakeJobBoard();
+    try {
+      for (const n of [1, 2, 3]) own.script(`/slow/${String(n)}`, [{ delayMs: 100 }]);
+      await Promise.all([1, 2, 3].map((n) => fetch(`${own.url}/slow/${String(n)}`)));
+      await fetch(`${own.url}/slow/after`);
+      expect(own.peakInFlight()).toBe(3);
+    } finally {
+      await own.close();
+    }
+  });
+
   it('plays scripted responses in order, then falls back to the fixture', async () => {
     const real = 'https://boards-api.greenhouse.io/v1/boards/northwind/jobs';
     board.script(real, [
