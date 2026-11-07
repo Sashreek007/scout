@@ -1,5 +1,6 @@
 // The job boards scout reads through public APIs: Greenhouse, Lever and Ashby (#6). A posting's apply
 // URL names the company's board token, so every listing on one of them reveals a board to poll.
+import { hasCanadianLocation } from './locations';
 import type { Job, Listing } from './schemas';
 
 export const BOARD_ATS = ['greenhouse', 'lever', 'ashby'] as const;
@@ -115,10 +116,15 @@ function isBoardAts(ats: string): ats is BoardAts {
 }
 
 /**
- * The boards to poll in one run (#6): the union of the ones in `sources/boards.yaml`, every board
- * a listing from this run points at, and every board token already stored on a job. Each board is
- * listed once, sorted by ATS and token, with the company's name from the first listing or job that
- * gave one. Nothing is written anywhere: the list is worked out again each run.
+ * The boards to poll in one run (#6): the ones in `sources/boards.yaml`, plus every board that a
+ * listing from this run or a stored job in Canada points at. Sashreek chose Canadian boards only on
+ * #6: the saved Simplify list names 486 boards, and most of them come from postings outside
+ * Canada. Stored jobs get the same check, because #7 stores every listing it sees, and without it
+ * the other boards would come back the next day.
+ *
+ * Each board is listed once, sorted by ATS and token, with the company's name from the first
+ * listing or job that gave one. Any listing or job can name a board, in Canada or not, so a board
+ * from the file still gets a name. Nothing is written anywhere: the list is worked out each run.
  */
 export function boardsToPoll(input: {
   configured: Readonly<Record<BoardAts, readonly string[]>>;
@@ -126,22 +132,30 @@ export function boardsToPoll(input: {
   jobs: readonly Job[];
 }): BoardRef[] {
   const boards = new Map<string, BoardRef>();
-  const add = (ats: BoardAts, rawToken: string, company: string | null) => {
+  /** Adds a board when `poll` is set, and fills in a missing company name either way. */
+  const note = (ats: BoardAts, rawToken: string, company: string | null, poll: boolean) => {
     const token = canonicalToken(ats, rawToken);
     if (token === null) return;
     const key = `${ats}:${token}`;
     const known = boards.get(key);
-    if (!known) boards.set(key, { ats, token, company });
-    else if (known.company === null && company !== null) known.company = company;
+    if (!known) {
+      if (poll) boards.set(key, { ats, token, company });
+    } else if (known.company === null && company !== null) known.company = company;
   };
 
-  for (const ats of BOARD_ATS) for (const token of input.configured[ats]) add(ats, token, null);
+  for (const ats of BOARD_ATS) {
+    for (const token of input.configured[ats]) note(ats, token, null, true);
+  }
   for (const listing of input.listings) {
     const posting = parseBoardUrl(listing.applyUrl);
-    if (posting) add(posting.ats, posting.token, listing.company);
+    if (posting) {
+      note(posting.ats, posting.token, listing.company, hasCanadianLocation(listing.locations));
+    }
   }
   for (const job of input.jobs) {
-    if (job.boardToken !== null && isBoardAts(job.ats)) add(job.ats, job.boardToken, job.company);
+    if (job.boardToken !== null && isBoardAts(job.ats)) {
+      note(job.ats, job.boardToken, job.company, hasCanadianLocation(job.locations));
+    }
   }
 
   const order = (ats: BoardAts) => BOARD_ATS.indexOf(ats);

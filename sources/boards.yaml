@@ -1,5 +1,6 @@
-# Boards every run polls, by their token on each ATS. Each run also polls every board its GitHub
-# listings and stored jobs point at, but scout never writes to this file: add companies by hand.
+# Boards every run polls, by their token on each ATS. Each run also polls every board that its
+# GitHub listings and stored jobs in Canada point at, but scout never writes to this file: add
+# companies by hand. A board here is polled even when none of its postings are in Canada.
 # Checked by apps/pipeline/src/config/boards.ts.
 greenhouse: [tribalscale]
 lever: [eqbank]

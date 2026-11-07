@@ -184,7 +184,7 @@ Checked live on November 5, 2026.
 
 About 134 postings are in both GitHub lists, so together they hold roughly 520 unique Canadian postings. The vansh list uses short links that the collector has to follow to find the real apply URL; each is followed once and the result is kept on the job. vansh also lists a season with no year, like "Summer", so a term is set only for seasons `sources/sources.yaml` marks as certain: Summer means Summer 2027 in a Summer 2027 list, and the other seasons stay raw.
 
-The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's listings or already stored on a job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
+The board list grows on its own. Any GitHub listing whose apply URL is on Greenhouse, Lever or Ashby reveals that company's board token. Each run polls the boards in `sources/boards.yaml`, plus every token found in this run's Canadian listings or already stored on a Canadian job, so scout sees new postings before the lists do. Nothing is written back to the repo. Board postings are kept only if the title looks like a student role, which keeps full-time jobs out of Firestore.
 
 How the boards are read (#6):
 
@@ -192,7 +192,8 @@ How the boards are read (#6):
 - **Student roles.** A title counts if it says intern, internship, co-op, coop or student, or names a season with a year like "Winter 2027". That season and year also become the listing's term.
 - **Requests.** At most 4 board requests run at once across all three ATSs. Each gets 20 seconds and one retry. A board that answers 404 or can't be read is skipped and noted in the run, and the other boards carry on. An ATS fails as a whole only when none of its boards could be read and at least one failure wasn't a 404.
 - **Links.** scout builds the apply URL from the token and posting ID instead of taking it from the feed. A board posting then gets the same job key as the same posting in a GitHub list, even when a company points its Greenhouse links at its own careers page.
-- **Size.** The Simplify list saved on November 5, 2026 names 486 boards: 222 on Greenhouse, 62 on Lever and 202 on Ashby.
+- **Canadian boards only.** A listing or stored job adds its board only if one of its locations is in Canada, by the rule in `packages/core/locations.ts`, which the location filter (#8) is to use too. The Simplify list saved on November 5, 2026 names 486 boards, but only 45 through a Canadian posting: 23 on Greenhouse, 10 on Lever and 12 on Ashby. Sashreek chose this on #6. Stored jobs get the same check because every listing becomes a job (#7), so without it the other boards would come back the next day. Boards in `sources/boards.yaml` are always polled.
+- **Locations in Canada.** A location counts if it says "Canada", has a province code after a comma like `Markham, ON`, ends in a province name like `Toronto, Ontario`, or is a Canadian city on its own, like Lever's `Toronto`. A Canadian name followed by somewhere else doesn't count, so `New Brunswick, NJ` and `Vancouver, WA` fail. The saved lists have 462 Canadian rows in Simplify and 288 in vansh. These are fewer than the table above shows, because the table was counted live at a different time on November 5.
 
 ### Jobs he adds himself
 
@@ -786,6 +787,7 @@ scout/
 │   │   ├── schemas/               Zod schemas: Listing, Job, Application, FormSpec, Sheet, Question, Profile
 │   │   ├── stages.ts              the stages and the allowed moves
 │   │   ├── filters.ts             Canada, role, term, values, eligibility, already applied
+│   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
 │   │   ├── planner.ts             the rules and memory passes of the answer planner
 │   │   ├── resume/                plan schema, template renderer, the pre-flight checks

@@ -27,7 +27,7 @@ export interface CollectInput {
   lists: readonly JobSource[];
   /** The boards in sources/boards.yaml. */
   configuredBoards: Readonly<Record<BoardAts, readonly string[]>>;
-  /** Every stored job, for the board tokens already known. */
+  /** Every stored job, for the board tokens already known. Only jobs in Canada add a board. */
   jobs: readonly Job[];
   /** Makes this run's board sources, like `createBoardSources`, for the boards to poll. */
   boardSources: (boards: BoardRef[]) => readonly JobSource[];
@@ -41,8 +41,9 @@ export interface CollectResult {
 }
 
 /**
- * Reads the GitHub lists, then polls every board in boards.yaml, in this run's listings or on a
- * stored job (#6). The boards are worked out again each run and never written back to the repo.
+ * Reads the GitHub lists, then polls every board in boards.yaml, and every board that a listing
+ * from this run or a stored job in Canada points at (#6). The boards are worked out again each run
+ * and never written back to the repo.
  */
 export async function collectAll(input: CollectInput): Promise<CollectResult> {
   const lists = await collect(input.lists);

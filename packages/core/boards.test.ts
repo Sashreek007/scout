@@ -227,6 +227,46 @@ describe('boardsToPoll', () => {
     expect(boards).toEqual([{ ats: 'greenhouse', token: 'tribalscale', company: 'TribalScale' }]);
   });
 
+  it('takes boards only from listings and stored jobs in Canada', () => {
+    const stripe = 'https://job-boards.greenhouse.io/stripe/jobs/1';
+    const boards = boardsToPoll({
+      configured: { greenhouse: [], lever: [], ashby: [] },
+      listings: [
+        aListing({
+          company: 'Stripe',
+          locations: ['New York, NY', 'Remote in USA'],
+          applyUrl: stripe,
+          sourceUrl: stripe,
+        }),
+        aListing({ locations: ['New York, NY', 'Toronto, ON'] }),
+      ],
+      jobs: [
+        aStoredJob({}),
+        aStoredJob({
+          key: 'greenhouse:figma:1',
+          boardToken: 'figma',
+          company: 'Figma',
+          locations: ['San Francisco, CA'],
+        }),
+        aStoredJob({ key: 'greenhouse:acme:1', boardToken: 'acme', locations: [] }),
+      ],
+    });
+    expect(boards).toEqual([
+      { ats: 'greenhouse', token: 'shopify', company: 'Shopify' },
+      { ats: 'ashby', token: 'cohere', company: 'Cohere' },
+    ]);
+  });
+
+  it('polls every board in the file, and names it from any listing, in Canada or not', () => {
+    const stripe = 'https://job-boards.greenhouse.io/stripe/jobs/1';
+    const boards = boardsToPoll({
+      configured: { greenhouse: ['stripe'], lever: [], ashby: [] },
+      listings: [aListing({ company: 'Stripe', locations: ['Remote in USA'], applyUrl: stripe })],
+      jobs: [],
+    });
+    expect(boards).toEqual([{ ats: 'greenhouse', token: 'stripe', company: 'Stripe' }]);
+  });
+
   it('skips listings whose short link could not be followed', () => {
     const boards = boardsToPoll({
       configured: { greenhouse: [], lever: [], ashby: [] },

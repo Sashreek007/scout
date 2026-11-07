@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { GitHubListSource, createBoardSources, createHttpClient } from '@scout/adapters';
 import {
   ListingSchema,
+  hasCanadianLocation,
   type BoardRef,
   type JobSource,
   type Listing,
@@ -31,12 +32,16 @@ describe('collect', () => {
   });
 });
 
-function listing(company: string, applyUrl: string): Listing {
+function listing(
+  company: string,
+  applyUrl: string,
+  locations: string[] = ['Toronto, ON, Canada'],
+): Listing {
   return ListingSchema.parse({
     source: 'simplify',
     company,
     title: 'Developer Intern',
-    locations: ['Toronto, ON, Canada'],
+    locations,
     rawTerm: null,
     terms: [],
     applyUrl,
@@ -86,6 +91,52 @@ describe('collectAll', () => {
       ['lever', false],
     ]);
   });
+
+  it('never fetches a board that only a listing or stored job outside Canada points at', async () => {
+    const board = await startFakeJobBoard();
+    try {
+      const { atsFeeds } = await loadSources('sources/sources.yaml');
+      const { outcomes, boards } = await collectAll({
+        lists: [
+          listed('simplify', [
+            // Both real rows from the saved Simplify list. Figma's board is never fetched.
+            listing('Figma', 'https://boards.greenhouse.io/figma/jobs/6152695004', [
+              'London, UK',
+              'NYC',
+              'SF',
+            ]),
+            listing(
+              'Equitable Bank',
+              'https://jobs.lever.co/eqbank/11111111-2222-4333-8444-555555555555/apply',
+            ),
+          ]),
+        ],
+        configuredBoards: { greenhouse: [], lever: [], ashby: [] },
+        jobs: [
+          aJob({
+            key: 'greenhouse:scaleai:4730845005',
+            boardToken: 'scaleai',
+            company: 'Scale AI',
+            locations: ['SF', 'Remote in USA'],
+          }),
+        ],
+        boardSources: (found) =>
+          createBoardSources({ boards: found, feeds: atsFeeds, rewrite: board.rewrite }),
+      });
+      expect(boards).toEqual([{ ats: 'lever', token: 'eqbank', company: 'Equitable Bank' }]);
+      expect(board.requestUrls).toEqual(['/api.lever.co/v0/postings/eqbank?mode=json']);
+      expect(
+        outcomes.map((o) => (o.ok ? [o.source, o.batch.listings.length, o.batch.skipped] : o)),
+      ).toEqual([
+        ['simplify', 2, []],
+        ['greenhouse', 0, []],
+        ['lever', 17, []],
+        ['ashby', 0, []],
+      ]);
+    } finally {
+      await board.close();
+    }
+  });
 });
 
 describe('collecting from the real sources.yaml', () => {
@@ -109,6 +160,12 @@ describe('collecting from the real sources.yaml', () => {
         ['simplify', 17653, 5365],
         ['vansh', 3021, 2193],
       ]);
+      // The rows in Canada, by the rule that picks the boards to poll and that #8 filters with.
+      expect(
+        outcomes.map((o) =>
+          o.ok ? o.batch.listings.filter((l) => hasCanadianLocation(l.locations)).length : o,
+        ),
+      ).toEqual([462, 288]);
     } finally {
       await board.close();
     }
@@ -116,7 +173,7 @@ describe('collecting from the real sources.yaml', () => {
 });
 
 describe('collecting the lists and boards from the real config', () => {
-  it('polls every board they name through the feeds in sources.yaml, and changes no file', async () => {
+  it('polls the boards in boards.yaml and the ones Canadian listings name, and changes no file', async () => {
     const board = await startFakeJobBoard();
     const boardsFile = await readFile('sources/boards.yaml', 'utf8');
     try {
@@ -137,10 +194,11 @@ describe('collecting the lists and boards from the real config', () => {
           createBoardSources({ boards: found, feeds: atsFeeds, rewrite: board.rewrite }),
       });
 
-      // The saved Simplify list names 486 boards, and the stored job adds northwind. vansh's links
-      // are short links, which aren't followed here.
+      // The saved Simplify list names 486 boards, but only 45 of them through a posting in Canada,
+      // and those include the three in boards.yaml. The stored job, in Toronto, adds northwind.
+      // vansh's links are short links, which aren't followed here.
       const perAts = (ats: string) => boards.filter((b) => b.ats === ats).length;
-      expect([perAts('greenhouse'), perAts('lever'), perAts('ashby')]).toEqual([223, 62, 202]);
+      expect([perAts('greenhouse'), perAts('lever'), perAts('ashby')]).toEqual([24, 10, 12]);
       // Lever's feed doesn't name the company, so the name comes from the Simplify listing.
       expect(boards).toContainEqual({ ats: 'lever', token: 'eqbank', company: 'Equitable Bank' });
       expect(boards).toContainEqual({
@@ -158,10 +216,17 @@ describe('collecting the lists and boards from the real config', () => {
       ).toEqual([
         ['simplify', 17653, 5365, 0],
         ['vansh', 3021, 2193, 0],
-        ['greenhouse', 17, 2, 221],
-        ['lever', 82, 17, 61],
-        ['ashby', 124, 3, 201],
+        ['greenhouse', 17, 2, 22],
+        ['lever', 82, 17, 9],
+        ['ashby', 124, 3, 11],
       ]);
+
+      // Each board is fetched once, and nothing else is: Figma and Scale AI, whose saved listings
+      // are all in the US or the UK, are never asked.
+      const feedRequests = board.requestUrls.filter((url) => !url.startsWith('/raw.'));
+      expect(feedRequests).toHaveLength(boards.length);
+      expect(new Set(feedRequests).size).toBe(boards.length);
+      expect(feedRequests.filter((url) => /\/(?:figma|scaleai)\//.test(url))).toEqual([]);
 
       const lever = outcomes.find((o) => o.source === 'lever');
       expect(lever?.ok && lever.batch.listings.every((l) => l.company === 'Equitable Bank')).toBe(
