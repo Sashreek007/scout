@@ -50,7 +50,13 @@ export const RunSchema = z
     jobs: JobCountsSchema.default({ new: 0, changed: 0, unchanged: 0, outsideCanada: 0 }),
     filterReasons: z.partialRecord(FilterReasonSchema, Count),
     triageDecisions: z.partialRecord(TriageDecisionSchema, Count),
-    tokens: z.strictObject({ input: Count, output: Count, cacheRead: Count }),
+    /** Claude's tokens this run. Runs stored before #9 load with no cache writes. */
+    tokens: z.strictObject({
+      input: Count,
+      output: Count,
+      cacheRead: Count,
+      cacheWrite: Count.default(0),
+    }),
     costUsd: z.number().min(0),
     errors: z.array(RunErrorSchema),
   })

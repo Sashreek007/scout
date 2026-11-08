@@ -82,7 +82,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
     jobs: normalized.counts,
     filterReasons: filtered.reasons,
     triageDecisions: {},
-    tokens: { input: 0, output: 0, cacheRead: 0 },
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     costUsd: 0,
     errors,
   };
