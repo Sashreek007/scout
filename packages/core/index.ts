@@ -11,6 +11,7 @@ export * from './locations';
 export type * from './ports';
 export * from './prices';
 export * from './questions';
+export * from './redact';
 export * from './roles';
 export * from './schemas';
 export {
