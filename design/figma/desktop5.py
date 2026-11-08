@@ -94,6 +94,7 @@ agents_card = f'''<div class="card"><div class="cardh"><h2>Agents</h2><span clas
 {setrow("Per job board","Agents allowed on the same board at once, so no board sees a burst.",stepper(2))}
 {setrow("Pacing","Pause between two applications from one agent.",unit("3","minutes"))}
 {setrow("Wait for a live answer","How long an agent holds a form open after asking you. Then the application moves to needs answers.",unit("10","minutes"))}
+{setrow("Close an idle review tab","A form filled ahead for review closes if you leave it this long. The application stays in review.",unit("10","minutes"))}
 {setrow("Step timeout","Longest a single step may run before the supervisor restarts it.",unit("90","seconds"))}
 {setrow("Retries per step","Restarts before the application moves to failed.",stepper(2))}
 {setrow("Pause all agents","Agents finish the step they are on, then wait.",'<div class="toggle"></div>',last=True)}
@@ -101,18 +102,19 @@ agents_card = f'''<div class="card"><div class="cardh"><h2>Agents</h2><span clas
 
 def mrow(task, why, prov, model, effort):
     plogo = L("anthropic",14,"#ECECEC") if prov == "api" else L("claude",14)
-    ptxt = "Claude API" if prov == "api" else "Subscription"
+    ptxt = "Claude API" if prov == "api" else "Claude plan"
     segs = "".join(f'<span class="on">{e}</span>' if e == effort else f'<span>{e}</span>' for e in ["Low","Medium","High"])
     return f'<tr><td><div class="t1">{task}</div><div class="t2">{why}</div></td><td>{sel(ptxt,190,plogo)}</td><td>{sel(model,150)}</td><td><div class="seg">{segs}</div></td></tr>'
 models_card = f'''<div class="card"><div class="cardh"><h2>Models</h2><span class="sub">config/models, one row per task</span></div>
 <table><tr><th>Task</th><th style="width:210px">Account</th><th style="width:170px">Model</th><th style="width:200px">Effort</th></tr>
 {mrow("Triage","Ranks every new posting, batched","api","Haiku 5.5","Low")}
 {mrow("Answer planning","Writes the answer sheet","api","Sonnet 5.5","Medium")}
-{mrow("Resume tailoring","Third try on Opus 5.5 if checks fail","sub","Sonnet 5.5","High")}
+{mrow("Resume tailoring","Claude Code session on this Mac, falls back to the API","sub","Sonnet 5.5","High")}
 {mrow("Live field help","Fields the agent meets mid-form","api","Sonnet 5.5","Low")}
 {mrow("Reading and summaries","Careers pages, session summaries, email","api","Haiku 5.5","Low")}
 </table>
-<div class="banner b-amber" style="margin:4px 18px 18px;font-size:12.5px">{icon("alert","#FBBF24",16)}<span>The subscription option runs <span class="mono">claude -p</span> on this Mac only, and falls back to the API when it hits a usage limit. Anthropic's terms point automated products to API keys, so it stays off by default.</span></div>
+<div style="border-top:1px solid var(--line)">{setrow("Plan sessions a day","Most tailoring sessions scout starts on your Claude plan in a day. Your own Claude Code work shares the plan's limits.",unit("20","a day",70),last=True)}</div>
+<div class="banner b-amber" style="margin:4px 18px 18px;font-size:12.5px">{icon("alert","#FBBF24",16)}<span>Resume tailoring runs as a Claude Code session on this Mac, <span class="mono">claude -p</span> with scout's tools, and only ever hands you a draft. It falls back to the API at the plan's limit, or when the Mac hasn't tailored a job by the next daily run. Anthropic's terms point automated products to API keys, so this stays off until you turn it on. The other tasks use the API.</span></div>
 </div>'''
 
 browser_card = f'''<div class="card"><div class="cardh"><h2>Browser</h2></div>
@@ -145,6 +147,8 @@ perm_card = f'''<div class="card"><div class="cardh"><h2>Permissions</h2><span c
 {prow("navigate","Leave the company's site or its application system","Ask")}
 {prow("upload_file","Attach a document approved on the sheet","Allow")}
 {prow("submit","Click the final Submit","Ask")}
+{prow("resume_build","Render, compile and check a resume plan, for tailoring","Allow")}
+{prow("resume_approve","Approve a resume or an answer sheet","Deny",True)}
 {prow("field_fill_text","Type text that isn't on the sheet","Deny",True)}
 {prow("create_account","Make an account on a job site","Deny",True)}
 {prow("solve_captcha","Answer a CAPTCHA","Deny",True)}

@@ -23,10 +23,10 @@ def review_row(company, role, ats_k, counts, drafts, age, score_n):
 
 today_body = f'''
 <div class="pagehead"><div class="vstack" style="gap:4px"><h2>Wednesday, November 5</h2><div class="muted">9 new matches since yesterday. 2 of today's 20 applications used.</div></div>
-<span class="sp"></span><span class="btn">{icon("pause","#A9B1BD",14)}Pause scout</span><span class="btn">{icon("mac","#A9B1BD",14)}Start the agent</span></div>
+<span class="sp"></span><span class="btn">{icon("pause","#A9B1BD",14)}Pause scout</span><span class="btn">{icon("mac","#A9B1BD",14)}Start the agent</span><span class="btn pri">{icon("check","#0D0D0D",14,2.25)}Review 2 ready</span></div>
 <div class="queue">
  <div class="q"><span class="l">Questions waiting</span><span class="v" style="color:var(--amber)">4</span><span class="h">1 live, an agent is waiting</span></div>
- <div class="q"><span class="l">Sheets to review</span><span class="v">2</span><span class="h">One has a draft to read</span></div>
+ <div class="q"><span class="l">Ready to review</span><span class="v">2</span><span class="h">On the filled forms at the Mac, or the sheet</span></div>
  <div class="q"><span class="l">Needs you at the Mac</span><span class="v" style="color:var(--red)">1</span><span class="h">CAPTCHA on a Lever form</span></div>
  <div class="q"><span class="l">Approved, waiting for the agent</span><span class="v">4</span><span class="h">Run <span class="mono">pnpm agent</span> on your Mac</span></div>
  <div class="q"><span class="l">Deadlines this week</span><span class="v">1</span><span class="h">CodeSignal, due Sunday</span></div>
@@ -49,7 +49,7 @@ today_body = f'''
    {q_card("TechInsights","Software Development Co-op","lv","Do you have a valid driver's licence?","choice",["Yes","No"],"")}
    {q_card("Nelnet","Platform Engineer Intern","gh","What is your expected hourly rate (CAD)?","text","Type an answer, e.g. 28","Claude suggests $26 to $30 from compensation.expected_hourly_cad")}
    </div></div>
-  <div class="card"><div class="cardh"><h2>Ready for review</h2><span class="sub">The agent types exactly what you approve</span></div>
+  <div class="card"><div class="cardh"><h2>Ready for review</h2><span class="sub">The agent types exactly what you approve</span><div class="right"><span class="btn sm pri">Review 2 on the filled forms</span></div></div>
    <table class="tight"><tr><th style="width:56px">Score</th><th style="width:210px">Application</th><th>Board</th><th>Answer sources</th><th>Drafts</th><th>Waiting</th><th></th></tr>
    {review_row("Clio","Software Developer Co-op","gh",[("profile",10),("memory",2),("policy",2)],'<span class="muted">none</span>',"3h",88)}
    {review_row("Rodan Energy Solutions","AI Solutions Specialist Co-op","lv",[("profile",8),("memory",1),("you",1),("draft",1)],'<span class="src src-draft">1 to read</span>',"40m",79)}

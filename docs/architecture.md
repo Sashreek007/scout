@@ -30,7 +30,7 @@ This page explains how scout is put together. scout finds internship and co-op p
 
 ## 1. The big picture
 
-scout runs in four places. A daily job in GitHub Actions finds and ranks postings and plans the answers. Firestore holds everything. A dashboard on Vercel is where Sashreek answers questions and approves applications. An agent on his Mac does the one job that needs a real browser, which is filling in and submitting the form.
+scout runs in four places. A daily job in GitHub Actions finds and ranks postings and plans the answers. Firestore holds everything. A dashboard on Vercel is where Sashreek answers questions and approves applications from anywhere. An agent on his Mac does the one job that needs a real browser, which is filling in and submitting the form. When he's at the Mac, the agents fill forms ahead of him and he reviews each one on the filled page, accepting the answers all at once or one at a time (section 5).
 
 ![Architecture overview](images/overview.png)
 
@@ -47,6 +47,7 @@ scout runs in four places. A daily job in GitHub Actions finds and ranks posting
 | Repo layout | pnpm workspaces: three apps and three packages | Section 9 shows the folders. |
 | Data shapes | Zod | One schema gives the TypeScript type and checks data at runtime. It checks feed data, Firestore documents and Claude's output. |
 | AI | Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic TypeScript SDK, with Opus 5.5 as a resume's last try | Triage and answer planning use structured output. The agent's fallback uses the SDK's tool runner. |
+| Question matching | A small open embedding model, run locally with transformers.js | It recognises the same question in different wordings. It's free, nothing leaves the machine, and it is fast enough to compare against every remembered answer. |
 | Browser | Playwright driving Chrome with its own scout profile | Runs on the Mac, headed, so Sashreek can watch or take over. |
 | Database | Cloud Firestore, Standard edition | Live listeners for the dashboard and transactions for claiming work. |
 | Sign-in | Firebase Auth with Google | One user. Security rules let only his account in. |
@@ -66,7 +67,7 @@ scout has to:
 - Write a one-page resume for every application, tailored to the job description by the same rules used by hand today, and only from facts that are verified.
 - Fill in applications on Greenhouse, Lever and Ashby first, and on Workday later.
 - Give every factual answer a source in his profile or in an answer he gave before.
-- Ask him when it doesn't know, and never ask the same question twice.
+- Ask him when it doesn't know, and never ask the same question twice, however it's worded.
 - Submit nothing he hasn't approved.
 - Track every application from "found" to "offer".
 - Keep learning about him: every correction, edit and decision is stored with its reason and applied from then on.
@@ -96,9 +97,9 @@ scout is a **pipeline with a state machine, and adapters for each job board**. T
 | `queued` | Chosen to apply, by Sashreek or by the auto rule | The pipeline |
 | `planning` | The form is being read and the answers planned | The pipeline. After three failed tries it moves to `failed` |
 | `needs_answers` | Questions are waiting for Sashreek | Sashreek, by answering in the dashboard |
-| `review` | The answer sheet is ready | Sashreek: approve or skip |
-| `approved` | Ready for the agent | The agent, when it claims it |
-| `filling` | The agent is working in the browser | The agent. If it stops, or its lease runs out before Submit, the application goes back to `approved`. With `finalClick: hold`, Sashreek's own click on Submit makes it `applied` |
+| `review` | The answer sheet is ready | Sashreek: approve or skip, on the Application page or on the filled form in the Mac app. While he reviews on the form, a worker holds it in a tab, but the stage stays `review` until he approves |
+| `approved` | Ready for the agent | The agent, when it claims it. An application approved on the filled form goes straight to `filling` in the same tab |
+| `filling` | The agent is working in the browser | The agent. If it stops, or its lease runs out before Submit, the application goes back to `approved`. On a board set to hold, Sashreek's own click on Submit makes it `applied` |
 | `needs_hand` | A CAPTCHA, a login wall, or a result the agent can't read | Sashreek: back to `filling` once he fixed it at the Mac, back to `approved` for another agent, or `applied` when he confirms it went in. The agent marks it `applied` if the confirmation appears |
 | `applied` | The company's confirmation was seen | Sashreek or the mail watcher |
 | `assessment`, `interview`, `offer` | After applying | Sashreek or the mail watcher |
@@ -120,7 +121,7 @@ interface Llm        { triage(jobs: Job[], profile: Profile): Promise<TriageRun>
 
 1. Triage: does this posting fit him, and which side of his work should lead?
 2. Resume tailoring: which entries, bullets, titles and skill rows fit this job description, and how to reword a bullet in the job's vocabulary without changing what it claims.
-3. Answer planning: which profile fact answers "Are you legally eligible to work in Canada?", and what goes in "Why do you want to work here?"
+3. Answer planning: which profile fact answers "Are you legally eligible to work in Canada?", what goes in "Why do you want to work here?", and, when the local matcher isn't sure, which kind of question a new wording is.
 4. A fallback in the browser when a filler can't find a field on the page. Even then it may only type values from the approved sheet.
 
 Everything Claude writes is checked by code against the knowledge base before Sashreek sees it.
@@ -133,8 +134,10 @@ Everything Claude writes is checked by code against the knowledge base before Sa
 | Canada only, checked in code. | He is on a study permit with a co-op work permit, so Canadian roles are the ones he can take. A location rule in code is easy to test. |
 | Values and eligibility filters run in code before Claude sees a posting. | Defence, weapons and surveillance employers are out on values grounds, and SWPP, FSWEP and citizen-or-PR postings are closed to him. Code rules are predictable and testable. Triage still flags anything the rules miss. General Dynamics postings were in the Canadian list on November 5, 2026, so this matters from day one. |
 | scout reads the application form before any browser opens. | Greenhouse publishes each job's full form through a public API, with field types and which fields are required. Lever puts its custom questions in the apply page's HTML. So scout can plan every answer and ask every question in one batch, days before the agent runs. |
-| Sashreek approves the answer sheet, not a screenshot. | The browser doesn't have to wait open for hours. The agent fills from the approved sheet, reads every value back from the page, and stops if anything differs. |
+| Sashreek approves every answer before anything is submitted, either on the answer sheet ahead of time or on the filled form. | The sheet works from the phone and needs no browser open. On the Mac, reviewing on the filled form is faster: the agents fill forms ahead of him from the sheet, he accepts the answers in bulk or one at a time, and approving and filling happen in one sitting. Tabs only open while he's reviewing, so no browser waits open for hours. Either way the agent types only values from the sheet, reads every value back and stops if anything differs. Sashreek asked for this on November 7, 2026. |
 | Every factual answer cites a profile field or a remembered answer. | Wrong answers on work authorization or availability can cost him the job. The planner may only draft free-text answers like "why us", and those always go to him. |
+| Remembered answers are matched by the kind of question first, then by meaning. | Forms word the same question many ways, so an exact match misses most repeats. But wordings that look alike can need opposite answers, like "Are you authorized to work in Canada?" and "Will you need sponsorship?". So every question is sorted into a known type, the high-stakes types need a confident match, and the first time a new wording lands in one, he confirms it. The embedding model runs locally, so nothing leaves the machine and there is no vector database to run. |
+| When a form reads the resume to fill fields, scout uploads the resume first and fills only what the parser left empty or got wrong. | Workday and some Greenhouse and Lever forms fill fields from the uploaded resume. Filling first and uploading after would let the parser overwrite approved answers. |
 | The profile and remembered answers live in Firestore. The YAML files in `profile/` only seed it. | The pipeline in GitHub Actions needs the profile, and he edits it from the dashboard. One copy means no drift. |
 | A job's document ID is built from the posting, like `greenhouse:tribalscale:4726999006`. The application uses the same ID. | Running the collector twice updates the same documents instead of making copies. Using the same ID for the application means there can only be one application per posting. |
 | GitHub Actions runs the schedule. No server, no n8n, no Cybera. | The daily run is a few minutes of HTTP calls and Firestore writes. Actions does that for free in a private repo. Cybera's Rapid Access Cloud is for research and testing, not ongoing hosting. |
@@ -143,7 +146,7 @@ Everything Claude writes is checked by code against the knowledge base before Sa
 | One user, and the rules allow one account. | It is a personal tool. Rules for one known account are short and easy to check. |
 | Notifications come from scout itself: macOS notifications on the Mac and push notifications on the phone. No Discord. | The app that asks the question is where he answers it, so the alert should open it there. Sashreek dropped Discord on November 5, 2026. |
 | A supervisor written in code runs the agents, on Temporal. | Temporal gives child workflows, signals, timers and retries out of the box, and a workflow ID per job key makes a double application impossible. A model supervising models would add mistakes, not remove them. |
-| Model, effort and account are set per task. The API is the default, and the Claude subscription is an opt-in. | He can trade cost for quality per task, and use his plan where it's allowed, with an automatic fall back to the API when the plan's limit is hit. |
+| Model, effort and account are set per task. The API is the default, and the Claude subscription is an opt-in. | He can trade cost for quality per task, and use his plan where it's allowed, with an automatic fall back to the API when the plan's limit is hit. Resume tailoring, the biggest cost, can run on his plan as a Claude Code session that works through scout's MCP tools (section 5c). Sashreek asked for this on November 7, 2026. |
 | Boards without a hand-written filler use Stagehand to find fields, while scout types the values. | It covers about a third of postings without giving a model free control of the form. |
 | He sets how many agents run in parallel, 3 by default. | Approvals no longer gate throughput once 20 a day are queued. Workers share one Chrome window as tabs, because Chrome locks a profile to one process and logins should be shared. |
 | A worker asks live when it meets a question, and holds the form for 10 minutes. | Most new questions take him seconds to answer. Holding the tab means the application finishes now instead of a day later, and other workers keep going meanwhile. |
@@ -280,10 +283,18 @@ Every reader returns the same `FormSpec`: a list of fields, each with an ID, lab
 The planner turns a `FormSpec` into an answer sheet in three passes:
 
 1. **Rules.** Name, email, phone, links, the upload of this job's approved resume, and the common yes-or-no questions on work authorization come straight from the profile. No AI is used.
-2. **Memory.** Questions he has already answered are matched by their normalized text.
+2. **Memory.** First an exact match on the normalized wording. Then the question is sorted into a question type, and the remembered answer for that type is mapped to this form's options. A question with no type can reuse the answer to a question that means the same thing. How matching works, and when it asks him instead, is below.
 3. **Claude.** Everything left goes to Claude with the form, the profile, the memory and the posting. Each answer comes back with its source and evidence. A factual answer must name the profile field it came from. If Claude can't ground an answer, the field becomes a question for him.
 
 Voluntary demographic questions follow the profile's policy, which by default is to decline.
+
+**Question types.** `packages/core/question-types.ts` lists the kinds of question forms ask, each with example wordings and a stakes level: work authorization in Canada, sponsorship now or later, start date, term length, graduation date, relocation, in person or hybrid, salary expectation, how he heard about the job, worked here before, knows someone here, 18 or over, background check consent, the demographic questions and a few dozen more. Each type keeps one canonical answer, like `needsSponsorship: false`, and the planner maps it to whatever options the form offers. If no option fits cleanly, the field becomes a question.
+
+**Sorting a new wording.** A small open embedding model, run locally with transformers.js, turns the question into a vector and compares it with every example wording and every remembered question. At a few hundred entries that takes milliseconds, so there is no vector database. A close match to one type's examples sorts it. A match in the uncertain band goes to Claude Haiku 5.5 with the candidate types, and its answer has to be one of them.
+
+**High stakes.** Work authorization, sponsorship, availability, relocation, salary, legal statements and the demographic questions are high stakes. Wordings that look alike can need opposite answers, and a negation like "do not require" flips the meaning. So a high-stakes answer is only reused when the type match is confident and the options map cleanly. The first time a new wording lands in a high-stakes type, he confirms it, for example "This looks like the sponsorship question. Answer No?". Once he does, that wording joins the type's examples and is an exact match from then on. Other types reuse the answer on a confident match and show it as proposed.
+
+**Every answer says how it matched.** The sheet records `exact`, `type` or `meaning` with the similarity, so he can see why a value was proposed. The evals in section 9 score the matcher. Issue #77.
 
 ### Fillers and the agent
 
@@ -305,16 +316,31 @@ The same Mac process also runs a small render worker. When he edits a resume in 
 
 `config/agent.finalClick` decides step 8. With `auto`, the agent clicks Submit. With `hold`, it stops on the filled form and Sashreek clicks it himself.
 
+### Reviewing on the filled form
+
+When he's at the Mac, he can review applications on the form itself instead of on the sheet. He clicks Review on Today or the Agents page, and the supervisor fills forms ahead of him:
+
+1. A worker claims the next application in `review` with a prefill lease, opens its form in a tab and fills every field from the sheet. The stage stays `review`. Up to `workers` forms are filled ahead of the one he is looking at. If he walks away, a prefilled tab closes after `config/agent.reviewIdleMinutes`, 10 by default, and the application waits in `review` as before.
+2. If the board reads the resume to fill fields, the worker uploads this job's resume first, and only once he has approved it. It reads back what the parser filled and compares it with the profile. Fields the parser got wrong, like a merged name or a shifted graduation date, are marked, and the worker fills only what is still empty or wrong.
+3. The Mac app shows the tab full size with a panel on the right. Each field shows its proposed value, where it came from (profile, remembered answer, policy, Claude fact, Claude draft, the resume parser or him), how it matched, and its state: proposed, accepted, edited or needs you. On the page, filled fields are outlined in the same colours.
+4. He accepts everything at once with Accept all (⌘↵), which skips drafts and anything marked, or goes field by field. Tab on an outlined field accepts it and jumps to the next one, Esc clears it, and typing over a value marks it as his. A draft like "Why us?" has to be opened before it can be accepted. A high-stakes wording seen for the first time asks him to confirm its type.
+5. When every field is accepted, the application moves to `approved` and straight to `filling` in the same tab. The agent reads every value back, then submits or waits for his click, depending on the board's mode.
+6. After submitting, anything he typed or edited comes back as one tick: "Remember these 4 answers?"
+
+**Learning from forms he fills himself.** For the first few applications, or on a board without a filler, he can fill the form himself in the scout tab. Before he submits, scout reads every field back, sorts each question into a type and offers the answers to remember the same way. That is how memory fills up in the first week without a long setup.
+
+The sheet stays the one source of truth underneath, and the panel is just another way to approve it. So the guards don't change: an agent only types values that are on the sheet, and nothing is submitted until every field on it is approved. Issue #78.
+
 ### Dashboard
 
 A Next.js app that reads Firestore directly with the Firebase web SDK and live listeners, and sends commands to the Mac as `commands/{id}` documents. It has no server code. The Mac app shows the same pages, connected straight to the scout server (section 5d).
 
 | Page | What it shows |
 |---|---|
-| Today | Open questions, sheets waiting for review, `needs_hand` items and assessment deadlines |
+| Today | Open questions, sheets waiting for review with a Review button that starts reviewing on the filled forms in the Mac app, `needs_hand` items and assessment deadlines |
 | Board | One column per stage, one card per application |
 | Jobs | Triaged postings with their filter and triage reasons, and a button to queue one |
-| Application | The saved posting, the tailored resume with its diff and sources, the answer sheet with sources, the event history and notes |
+| Application | The saved posting, the tailored resume with its diff and sources, the answer sheet with each answer's source, how it matched and its state, the event history and notes |
 | Profile | His facts and remembered answers, editable |
 | Agents | Every running agent: its application, current step, time in step, tokens, and any question it is waiting on, with pause, stop and bring-tab-to-front for each |
 | Knowledge | Facts, bullets, rules and decisions, the suggestions waiting for him, and the log of what changed |
@@ -387,7 +413,7 @@ A base is a complete resume he has signed off: its LaTeX template, its bullets i
 
 ### How a resume is built for one job
 
-This runs in the daily pipeline, next to answer planning, for every queued application.
+This runs in the daily pipeline, next to answer planning, for every queued application. When tailoring is set to his Claude plan, it runs on the Mac instead, as a Claude Code session (section 5c).
 
 1. **Plan.** Claude Sonnet 5.5 at high effort reads the job description and the knowledge base. It returns a plan: which entries appear and in what order, an honest retitle if one fits, which bullets by ID, any rewording in the job's vocabulary, the skill rows named the way the job names them, and an availability line if the posting asks for one. Every reworded bullet keeps the fact IDs of the bullet it came from.
 2. **Render.** Code fills the active base's template with the plan. Claude never writes raw LaTeX.
@@ -461,13 +487,23 @@ Every Claude call goes through the `Llm` port, so the model, effort and account 
 |---|---|---|
 | Triage | Claude Haiku 5.5, low, through the Batches API at half price | Yes, when the Mac runs the pipeline |
 | Answer planning | Claude Sonnet 5.5, medium | Yes, when the Mac runs the pipeline |
-| Resume and cover letter tailoring | Claude Sonnet 5.5, high. A third try, when the checks fail twice, uses Claude Opus 5.5. | Yes, when the Mac runs the pipeline |
+| Resume and cover letter tailoring | Claude Sonnet 5.5, high. A third try, when the checks fail twice, uses Claude Opus 5.5. | Yes, on the Mac, as a Claude Code session with scout's tools (below) |
 | Live field help in the browser | Claude Sonnet 5.5, low | No, it needs the API's tool runner |
 | Reading a careers page he added, session summaries, reading employer email | Claude Haiku 5.5, low to medium | Yes |
 
 **Sonnet and Haiku by default, Opus only where it earns its price.** Sashreek chose this on November 5, 2026: use Sonnet 5.5 and Haiku 5.5 wherever they do the job well. Triage and the short reading tasks are classification and extraction, which Haiku handles. Planning, tailoring and field help need more judgement, so they get Sonnet. The evals in #57 check this before the first real application: each task's case set runs on its default and on Opus 5.5, and a task that falls short of its threshold moves to Opus in `config/models` with no code change. Haiku has no server-side refusal fallback, so a refused Haiku call is retried on Sonnet in code. Sonnet and Opus calls use the API's server-side fallback.
 
-**The API is the default for everything.** The subscription option runs `claude -p` with `--json-schema` on the Mac, with `ANTHROPIC_API_KEY` removed from that process so it bills his Claude plan. When the plan's session or weekly limit is hit, the run fails, scout detects it and repeats the call on the API, and the run log says which account paid. Two limits on this option:
+**The API is the default for everything.** The subscription option runs Claude Code itself, `claude -p`, on the Mac, with `ANTHROPIC_API_KEY` removed from that process so it bills his Claude plan. Short tasks call it with `--json-schema` and read back one structured answer. When the plan's session or weekly limit is hit, the run fails, scout detects it and repeats the call on the API, and the run log says which account paid.
+
+**Tailoring on his plan.** Tailoring is the biggest cost, about two thirds of the API estimate in section 6, and it gains the most from working like an agent. With tailoring set to the subscription, it runs as a Claude Code session instead of a single call:
+
+- The scout server starts `claude -p` with `--mcp-config` pointing at scout's MCP server, `--allowedTools` limited to the tailoring tools, and `--output-format stream-json`. The stream becomes the application's session items, so he can watch it work in the app.
+- The tools let it read the posting and the knowledge base, save a resume plan, render, compile and check it, and hand the draft over for review. It still never writes LaTeX: it writes the plan, and code renders it. It can't approve anything.
+- It works the way the resume advisor does by hand: plan, compile, see that a bullet runs to three lines or the page runs over, fix it, check again. It stops after three failed rounds and asks him a choice question, as in section 5b.
+- It runs on the Mac, because that's where Claude Code is signed in. With tailoring on the plan, the daily run leaves it to the Mac. If the Mac hasn't tailored an application by the next daily run, that run tailors it on the API.
+- `config/models.subscriptionDailyCap` limits how many sessions scout starts on the plan each day, 20 by default, because the plan's limits are shared with his own Claude Code work.
+
+Issue #41. Two limits on this option:
 
 - Anthropic's terms say subscription access is for ordinary Claude Code use and that products should use API keys. A personal script on his own Mac is not clearly covered either way, so the option is off until he turns it on.
 - It only works on the Mac. The GitHub Actions run always uses the API.
@@ -526,7 +562,7 @@ The daily pipeline stays on GitHub Actions. Finding and ranking jobs must not de
 | A stage changes | Firestore in one batch with its event, as before | Every client through its listener |
 | He answers, approves, pauses or stops | The Mac app calls `POST /commands`. The web and phone write `commands/{id}`. | The server checks the command against the stage machine and the permissions, sends it to the right workflow as a Temporal signal, and writes the result back on the command |
 
-Commands are `answer`, `approve`, `pause`, `resume`, `stop`, `retry`, `show_tab`, `start_next`, `set_workers` and `add_job`. At 20 applications a day the mirror adds about 1,500 writes, well inside the Spark plan's 20,000.
+Commands are `answer`, `approve`, `accept_fields`, `start_review`, `pause`, `resume`, `stop`, `retry`, `show_tab`, `start_next`, `set_workers` and `add_job`. At 20 applications a day the mirror adds about 1,500 writes, well inside the Spark plan's 20,000.
 
 ### Sessions: memory per application
 
@@ -547,7 +583,7 @@ Memory per application isn't enough. What scout learns in one session has to rea
 | Core rules | `rules.md` constraints, never-print items, the values filter, work authorization | Always, in the cached system prompt | Suggestions he accepts |
 | Profile | Every fact a form can ask for | Always, for planning and filling | His edits |
 | Knowledge base | Facts with sources, approved bullets, decisions (section 5b) | Searched by a tool for each task | His edits and rejections |
-| Remembered answers | Question to answer | Matched by key, then searched by meaning | Every question he answers with "remember" ticked |
+| Remembered answers | One answer per question type, or per wording for untyped questions, with every wording it answered | Matched by exact wording, then by question type, then by meaning (section 5) | Every answer he gives or edits with "remember" ticked, and forms he fills himself |
 | Company memory | `companies/{domain}`: logo, application system, past applications and outcomes, selectors that worked, form quirks, recruiter names from email | When a session for that company starts | Session summaries and the mail watcher |
 | Board skills | `skills/{board}.md` in the repo: how that board's forms behave, known traps, fields that need care | When an agent opens that board's form | Suggestions from failed steps, accepted by him |
 
@@ -567,11 +603,16 @@ Every tool a model can call is served by scout's own MCP server in `packages/mcp
 | `field_fill` | Type a value into a field. The value must come from the sheet, by field ID. | Allow, guarded |
 | `field_fill_text` | Type text that isn't on the sheet | Deny |
 | `click` | Click anything except the final submit | Allow on the company's own site, ask elsewhere |
-| `submit` | Click the final submit | Ask on boards set to hold, allow on boards set to auto |
+| `submit` | Click the final submit | Ask on boards set to hold, allow on boards set to auto. Either way only once every field on the sheet is approved. |
 | `ask_user` | Ask a live question and wait for the answer or the timeout | Allow |
 | `suggest_memory` | Propose a fact, rule, company quirk or skill change | Allow. It only creates a suggestion. |
 | `report` | Add a progress line to the session | Allow |
 | `upload_file` | Attach a document | Allow only files approved on this application's sheet, checked by hash |
+| `job_get`, `resume_base_get` | Read the posting and the active base resume, for tailoring | Allow |
+| `resume_plan_write` | Save a resume plan for this application: entries, bullet IDs, rewording, skill rows | Allow, guarded: every bullet must trace to facts in the knowledge base |
+| `resume_build` | Render, compile and check the latest plan, and return the failures and each bullet's line count | Allow |
+| `resume_ready` | Hand the checked draft over for his review | Allow |
+| `resume_approve`, `sheet_approve` | | Deny. Approvals only come from him in the scout UI. |
 | `create_account`, `solve_captcha` | | Deny |
 
 The policies live in `config/permissions` and are edited in Settings, like Claude Code's allow, ask and deny lists. An `ask` becomes a request on the event stream.
@@ -592,7 +633,7 @@ scout writes one and uses the rest only while building.
 
 | Server | Status | Why |
 |---|---|---|
-| scout MCP, `packages/mcp` | Write it | The tools above, with policies and hooks. It also gives his own Claude Code or Claude Desktop a few read tools and one write: `whats_waiting`, `get_application` and `answer_question`. Approvals stay in the scout UI. |
+| scout MCP, `packages/mcp` | Write it | The tools above, with policies and hooks. It also gives his own Claude Code or Claude Desktop a few read tools and one write, `whats_waiting`, `get_application` and `answer_question`, plus the tailoring tools, so he can ask his own Claude Code to re-tailor a resume. The draft lands back in review. Approvals stay in the scout UI. |
 | Playwright MCP | Use while building | Explore real forms from Claude Code and save fixtures. Not at runtime, because it gives a model raw browser control without scout's guard. |
 | Firebase MCP, from `firebase-tools` | Use while building | Look at Firestore data and test security rules from Claude Code. |
 | GitHub MCP or `gh` | Use while building | Issues and pull requests. |
@@ -610,6 +651,7 @@ Like the browser preview in Codex's app, every agent card carries a small live v
 - **How.** The server attaches to each agent's tab over the Chrome DevTools Protocol and starts a screencast, which sends JPEG frames as the page changes. Frames go to the Mac app over the local WebSocket: a few a second for the card thumbnails, up to 15 a second for the one he has open.
 - **What he sees.** The page as the agent sees it, with the field being typed outlined and a label for the agent's cursor. Beside it, the session's work log scrolls, so each frame lines up with a step.
 - **Taking over.** "Take over" pauses the agent after its current step and forwards his clicks and keys to the tab through the same protocol. "Hand back" resumes it, and the agent reads the page again before it continues. "Open in Chrome" brings the real tab to the front.
+- **Reviewing.** During a review, the full-size view puts the answer panel on the right in place of the work log, and outlines each filled field on the page (section 5, "Reviewing on the filled form").
 - **Where it works.** Live frames stay on the Mac, because streaming video through Firestore would burn the write quota. The web and phone show the latest step screenshot from the session instead, refreshed at each step.
 - **Cost.** Nothing is recorded by default. The step screenshots already in the session log are the record.
 
@@ -633,9 +675,9 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | Firestore path | Holds | Why this shape |
 |---|---|---|
 | `profile/main` | Every fact about him that a form can ask for | One document, read once per run. |
-| `memory/{questionKey}` | Answers he gave before | The ID is a hash of the normalized question, so the same question always maps to one document. |
+| `memory/{questionKey}` | One answer he gave: its question type, the canonical answer, every wording it answered with that wording's embedding, and when he confirmed it | The ID is the question type for typed questions, like `sponsorship`, or a hash of the normalized wording for untyped ones, so one answer serves every wording of the same question. |
 | `jobs/{jobKey}` | A posting, its filter result and its triage. `sources` lists where it was found, including `you` with the link he pasted. | The ID comes from the posting, so collecting twice updates instead of duplicating. |
-| `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
+| `applications/{jobKey}` | Stage, form, answer sheet with each field's state and how it matched, lease or prefill lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. The ID is the move's time in milliseconds and the move, like `1793887260000_queued_planning`, so documents sort in the order the moves happened and the security rules can check that a stage change wrote its event. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
 | `devices/{token}` | One phone or browser that gets push notifications: its FCM installation ID, a label and when it was added | The digest goes to every device listed. Tokens are never logged. |
@@ -649,8 +691,8 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `kb/log/items/{id}` | Every change to the knowledge base: what, who, why | So he can see how scout's picture of him changed. |
 | `applications/{jobKey}/resume/{version}` | The base it came from, the plan, the rendered `.tex`, the PDF as base64, check results, the diff against that base, and approval | Each edit makes a new version. The agent uploads the approved one and checks its hash. |
 | `renderRequests/{id}` | A request to re-render a resume after he edits it | The render worker on his Mac picks these up. |
-| `config/agent` | `paused`, `dailyCap` (20 by default, `null` for no limit), `workers` (1 to 8, 3 by default), `perCompany` (1), `perBoard` (2), `paceSeconds` (min and max), `liveQuestionMinutes` (10), `stepTimeouts`, `stepRetries`, `finalClick` per board, `autoQueueScore`, `maxTriagePerRun`, `genericFiller` (on or off) | Every agent setting is editable in Settings and read at the start of each agent loop. |
-| `config/models` | For each task: account (`api` or `subscription`), model and effort | Read by the `Llm` port on every call. |
+| `config/agent` | `paused`, `dailyCap` (20 by default, `null` for no limit), `workers` (1 to 8, 3 by default), `perCompany` (1), `perBoard` (2), `paceSeconds` (min and max), `liveQuestionMinutes` (10), `reviewIdleMinutes` (10), `stepTimeouts`, `stepRetries`, `finalClick` per board, `autoQueueScore`, `maxTriagePerRun`, `genericFiller` (on or off) | Every agent setting is editable in Settings and read at the start of each agent loop. |
+| `config/models` | For each task: account (`api` or `subscription`), model and effort, plus `subscriptionDailyCap` (20) | Read by the `Llm` port on every call. |
 | `agents/{agentId}` | Live status of each agent: state, application, current step, started, tokens, last error | The Agents page listens to these. |
 | `counters/{date}` | Applications submitted that day | The claim transaction checks it against `dailyCap` when a cap is set. Stats use it either way. |
 | `applications/{jobKey}/items/{itemId}` | The last 200 session items he would want to read: steps, questions, answers, approvals | A short mirror of the full session log on the Mac. |
@@ -708,21 +750,19 @@ From the [Firebase pricing page](https://firebase.google.com/pricing), the [Stor
 
 GitHub can delay a scheduled run, or drop it when load is high. A missed run costs nothing, because the next run picks up everything the missed one would have found.
 
-The Claude API is not free. This is an estimate, not a measurement:
+The Claude API is not free. This is an estimate, not a measurement.
 
-| Work | Volume | Tokens per call | Cost a month |
-|---|---|---|---|
 Prices are per million tokens: Haiku 5.5 $0.10 in and $0.50 out, Sonnet 5.5 $2 in and $10 out, Opus 5.5 $4 in and $20 out, and cache reads $0.20 on Sonnet and Opus. The Batches API is half price.
 
 | Work | Model | Volume | Tokens per call | Cost a month |
 |---|---|---|---|---|
 | Triage | Haiku 5.5, batched | 15 to 30 new postings a day after the code filters | 1,500 new input, 3,000 cached, about 1,000 output with thinking | Under $1 |
 | Answer planning | Sonnet 5.5 | 10 to 20 applications a day | 6,000 input, 1,500 output | About $8 to $16 |
-| Resume tailoring | Sonnet 5.5, with Opus 5.5 for about 1 in 10 third tries | 10 to 20 applications a day, 1.5 tries on average | 4,000 new input, 20,000 cached knowledge base, 3,000 output | About $21 to $43 |
+| Resume tailoring | Sonnet 5.5, with Opus 5.5 for about 1 in 10 third tries | 10 to 20 applications a day, 1.5 tries on average | 4,000 new input, 20,000 cached knowledge base, 3,000 output | About $21 to $43, or nothing on the API when it runs on his Claude plan |
 | Page reading, summaries, email | Haiku 5.5 | A few calls per application | 4,000 input, 400 output | Under $2 |
 | Field help in the browser | Sonnet 5.5 | Rare | Varies | Small |
 
-That makes about $30 to $60 a month at 10 to 20 applications a day, about half of the same work on Opus 5.5, plus a few dollars once for the first backlog. Tailoring is still the biggest line, because it writes the most and runs at high effort. Evals run only on pull requests that change a prompt or a model, through the Batches API. Set a monthly spend limit in the Anthropic Console either way.
+That makes about $30 to $60 a month at 10 to 20 applications a day, about half of the same work on Opus 5.5, plus a few dollars once for the first backlog. Tailoring is still the biggest line, because it writes the most and runs at high effort. With tailoring on his Claude plan, the API bill drops to about $10 to $20 a month. Answer planning shrinks too as remembered answers cover more questions, and matching questions costs nothing because the model runs locally. Evals run only on pull requests that change a prompt or a model, through the Batches API. Set a monthly spend limit in the Anthropic Console either way.
 
 Setup steps:
 
@@ -755,7 +795,7 @@ The tailoring step builds Northwind's resume from the active base, v6. The posti
 The pipeline reads the form from Greenhouse's API. It has 14 fields:
 
 - 11 come straight from the profile.
-- "How did you hear about us?" comes from memory.
+- "Where did you find this role?" comes from memory. He has never seen that wording, but it sorts into the same question type as the "How did you hear about us?" he answered for Cohere.
 - "Why Northwind?" is drafted by Claude for him to edit.
 - "Are you available for in-person interviews in Toronto?" isn't in the profile or memory, so it becomes a question.
 
@@ -765,9 +805,9 @@ The application moves to `needs_answers`, and the digest tells him one question 
 
 ![Sequence diagram: answering, approving and applying](images/apply.png)
 
-He answers "Yes" on his phone and ticks "remember", so no form will ask him that again. With no questions left, the application moves to `review`. He opens the resume tab, sees the diff against v6 and the source of each bullet, and changes "Built 2 Grafana dashboards" to "Tracked reliability on 2 Grafana dashboards". scout saves that wording as an alternate bullet for platform jobs. He approves the resume, rewrites one sentence of the essay and approves the sheet.
+He answers "Yes" on his phone and ticks "remember", so no form will ask him that again. With no questions left, the application moves to `review`. He opens the resume tab, sees the diff against v6 and the source of each bullet, and changes "Built 2 Grafana dashboards" to "Tracked reliability on 2 Grafana dashboards". scout saves that wording as an alternate bullet for platform jobs. He approves the resume, rewrites one sentence of the essay, and leaves the rest for the evening.
 
-That evening he starts the agent on his Mac. It claims the application, opens the form, fills it, attaches Northwind's approved resume after checking its hash, reads every value back and submits. Greenhouse shows its confirmation page, the stage becomes `applied`, and the Agents page moves on to the next one.
+That evening he opens scout on his Mac and clicks Review. A worker has already opened Northwind's form in a tab, attached the approved resume after checking its hash, and filled every field from the sheet. Two more forms are filling behind it. The panel beside the page lists the 14 fields with where each came from. The essay is already his, so Accept all takes the other 13 in one keystroke. The application moves to `approved` and on to `filling` in the same tab, and the agent reads every value back. Greenhouse is set to hold, so he clicks Submit himself. The confirmation page shows, the stage becomes `applied`, and the next form is already waiting.
 
 If the form had changed since the morning, with a new required field, the agent would have stopped before submitting and sent the application back to `needs_answers` with a new question.
 
@@ -834,16 +874,19 @@ scout/
 │   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed, missed
 │   │   ├── closing.ts             closing an application when its posting is taken down
 │   │   ├── planner.ts             the rules and memory passes of the answer planner
+│   │   ├── question-types.ts      the kinds of question forms ask, their example wordings and stakes
+│   │   ├── matching.ts            a question to a remembered answer: exact, by type, by meaning
 │   │   ├── resume/                plan schema, template renderer, the pre-flight checks
 │   │   ├── kb/                    knowledge base schemas, matching, suggestion rules
 │   │   ├── protocol.ts            every event and command between the server and its clients
-│   │   └── ports.ts               JobSource, FormReader, FormFiller, Store, Notifier, Llm, Orchestrator
+│   │   └── ports.ts               JobSource, FormReader, FormFiller, Store, Notifier, Llm, Embedder, Orchestrator
 │   ├── adapters/                  code that talks to the outside world
 │   │   ├── sources/               GitHubListSource, GreenhouseSource, LeverSource, AshbySource
 │   │   ├── readers/               GreenhouseApiReader, LeverPageReader
 │   │   ├── store/                 FirestoreStore
 │   │   ├── notify/                MacNotifier, PushNotifier (Firebase Cloud Messaging)
-│   │   └── llm/                   ClaudeTriage, ClaudePlanner
+│   │   ├── embeddings/            LocalEmbedder, a small embedding model run with transformers.js
+│   │   └── llm/                   ClaudeTriage, ClaudePlanner, SubscriptionLlm and the tailoring session over claude -p
 │   ├── mcp/                       scout's MCP server: tools, permission policies, guard and logging hooks
 │   ├── ui/                        React pages and components shared by the web dashboard and the Mac app
 │   └── testkit/                   InMemoryStore, FakeLlm, saved feeds, forms and job descriptions
@@ -922,6 +965,7 @@ Unit tests prove the code runs. Evals prove the judgement is still good. `evals/
 |---|---|---|
 | Triage | 60 or more postings with his label: apply, maybe or skip | Agreement with his labels |
 | Answer planning | 20 or more forms with the sheet he approved | Wrong factual answers, which must be zero |
+| Question matching | 100 or more form questions with the type he confirmed, including look-alike pairs that need opposite answers | Wrong matches on high-stakes types, which must be zero, and how many repeats it recognises |
 | Resumes | 15 or more job descriptions with the resume he approved | Pre-flight pass rate, bullets that differ from his version |
 | Field help | 20 or more page snapshots with the right field known | Fields found correctly |
 
@@ -933,14 +977,14 @@ The sources are in `docs/diagrams/` as `.drawio` files. Open one at app.diagrams
 
 ## 10. Build order and open questions
 
-The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26 and #28 to #60: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
+The work is broken into user stories with acceptance criteria, as GitHub issues #1 to #26, #28 to #60, #77 and #78: the backend, the dashboard pages, the supervisor, the harness and the Mac app. Issue #27 is the roadmap that tracks them by phase.
 
 | Phase | What gets built | Done when |
 |---|---|---|
 | 0 | Repo layout, schemas, profile import, Firebase project and rules | `profile/main` is in Firestore and he has checked every field |
 | 1 | Sources, filters, triage, the daily digest, the dashboard's Jobs, Board and Profile pages | A week of digests where he agrees with the picks |
-| 2 | The scout server with its event stream and command channel, sessions and company memory, scout's MCP server with permissions and guard hooks, the Temporal supervisor with parallel agents and live questions, the Agents page, the dashboard pages, the Electron Mac app, Knowledge base and its seed import, per-job resumes with checks, the Knowledge page, Greenhouse and Lever readers, the planner, the questions flow, the agent with Greenhouse and Lever fillers, `finalClick: hold` | 10 real applications with no wrong answers, each with a tailored resume he approved without rewriting more than one bullet |
-| 3 | Ashby, the generic filler with Stagehand, then Workday with accounts he creates, the mail watcher, Stats, the subscription option | 10 more with no wrong answers, and stages that update from email |
+| 2 | The scout server with its event stream and command channel, sessions and company memory, scout's MCP server with permissions and guard hooks, the Temporal supervisor with parallel agents and live questions, the Agents page, the dashboard pages, the Electron Mac app, Knowledge base and its seed import, per-job resumes with checks, the Knowledge page, Greenhouse and Lever readers, the planner with question types and matching by meaning, the questions flow, the agent with Greenhouse and Lever fillers, reviewing on the filled form, his Claude plan as an option with tailoring first, `finalClick: hold` | 10 real applications with no wrong answers, each with a tailored resume he approved without rewriting more than one bullet |
+| 3 | Ashby, the generic filler with Stagehand, then Workday with accounts he creates, the mail watcher, Stats | 10 more with no wrong answers, and stages that update from email |
 | 4 | `finalClick: auto` for boards with a clean record, more boards | His call after reading the phase 3 logs |
 
 Open questions:
@@ -953,3 +997,4 @@ Open questions:
 6. Should v7 become the active base before the knowledge base is seeded? Switching later is supported either way.
 7. Partly settled November 5, 2026: a required cover letter is drafted from the knowledge base and approved like a draft answer (#56). Still open: should optional cover letter fields be filled too?
 8. Settled November 5, 2026: scout gets an Electron Mac app, built locally because he has a free Apple developer account without the paid program. Still open: does the Liquid Glass package hold up on macOS 26 well enough to turn on by default?
+9. Settled November 7, 2026: he is on Claude Max. 20 tailoring sessions a day, the same as the daily cap, fit in Max's limits next to his own Claude Code work, so `subscriptionDailyCap` stays at 20. If a heavy day hits the 5-hour window anyway, the fallback to the API covers it, and the run log shows how often that happens.

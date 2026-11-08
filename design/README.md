@@ -28,6 +28,7 @@ python3 mobile.py
 | `desktop6.py` | 17 Today on first run, 18 Search, 19 Agents when something goes wrong |
 | `desktop7.py` | 21 The Mac app's menu bar item and a notification |
 | `desktop8.py` | 22 and 23, adding a job by link |
+| `desktop9.py` | 24 Reviewing on the filled form, 25 Remember these answers |
 | `mobile.py` | Mobile 01 to 07 |
 | `foundations.py`, `cover.py` | The Foundations and Cover pages |
 
