@@ -27,5 +27,10 @@ export { connectFirestore } from './store/connect';
 export { clearEmulator, emulatorFirestore } from './store/emulator';
 export { FirestoreStore, fromFirestore } from './store/firestore-store';
 export { ClaudeTriage, type ClaudeTriageOptions } from './llm/claude-triage';
-export { PushNotifier, type PushMessaging, type PushNotifierOptions } from './notify/push-notifier';
+export {
+  PushNotifier,
+  firebaseMessaging,
+  type PushMessaging,
+  type PushNotifierOptions,
+} from './notify/push-notifier';
 export { createClaudeClient } from './llm/client';

@@ -258,7 +258,7 @@ Postings decided `apply` with a score at or above `config/agent.autoQueueScore` 
 How a run triages (#9):
 
 - **Which jobs.** Jobs seen this run that passed the filters and have no triage, newest first, at most `config/agent.maxTriagePerRun` (60). A job whose content changed lost its triage in #7, so it is picked again. The first run takes only postings from the last 21 days.
-- **One batch.** All of them go to `config/models.triage`, by default Claude Haiku 5.5 at low effort, in one Message Batches request at half price. The answer is constrained by a JSON schema with structured outputs and checked with `TriageSchema`; reasons are cut to three lines of 120 characters first. The run waits up to 10 minutes for the batch and cancels it after that, so the daily job stays well inside its 20 minutes. Jobs it didn't finish are picked up the next day.
+- **One batch.** All of them go to `config/models.triage`, by default Claude Haiku 5.5 at low effort, in one Message Batches request at half price. The answer is constrained by a JSON schema with structured outputs and checked with `TriageSchema`; reasons are cut to three lines of 120 characters first. The daily run waits up to 7 minutes for the batch and cancels it after that, so a run stays under 10 minutes even on a slow day, well inside the job's 20 (#13). Jobs it didn't finish are picked up the next day.
 - **The prompt.** The instructions and what triage needs from his profile come first, marked for caching, so every call after the first reads them from the cache. That is his studies, work permit, availability, targets, wanted terms and excluded employers. His name, email, phone, links and resume files are never sent.
 - **Refusals.** The code checks `stop_reason` before reading an answer. Haiku has no server-side fallback, so a refused job is sent again on its own to `refusalModel`, Claude Sonnet 5.5, with server-side fallback on. If that refuses too, the job stays untriaged and the reason goes in the run's errors.
 - **Cost.** The run records input, output, cache read and cache write tokens, and a cost estimated from `packages/core/prices.ts`. On the saved lists, 60 postings cost well under five cents.
@@ -723,9 +723,14 @@ Setup steps:
 3. Create a service account key. Store it as a GitHub Actions secret and in the Mac's `.env`, and nowhere else.
 4. Create the Vercel project with the Firebase web config, which is public and not a secret.
 5. Turn on Firebase Cloud Messaging and generate the web push key for the dashboard.
-6. Set a monthly spend limit on the Anthropic API key.
+6. Set a monthly spend limit on the Anthropic API key. Store the key as the `ANTHROPIC_API_KEY` repository secret, and the service account key as `FIREBASE_SERVICE_ACCOUNT`. The daily workflow reads only those two; the project comes from the key's `project_id`.
 7. Create the private `scout-backups` repository and give the nightly job a deploy key for it.
 8. Include `~/.scout` in Time Machine.
+9. Once the dashboard is on Vercel, set its address as the `SCOUT_DASHBOARD_URL` repository variable, so the digest links to Today.
+
+### The daily workflow
+
+`.github/workflows/daily.yml` runs `pnpm pipeline` at 14:00 UTC every day and on demand (#13). A concurrency group keeps two runs from overlapping, and the job stops after 20 minutes. It installs with the pnpm cache on the Node version in `.nvmrc`, and passes `ANTHROPIC_API_KEY` and `FIREBASE_SERVICE_ACCOUNT` only to the step that needs them. `main.ts` builds the real sources, Firestore, `ClaudeTriage` and `PushNotifier` from the environment in `production.ts`, and exits 1 when the run failed. When any step fails, a last step runs `pnpm scout notify-failure`: unless this workflow's own run already sent a digest saying it failed, it sends "The morning run failed before it could report", opening the workflow run. If Firestore itself is down, the devices to notify can't be read, and GitHub's own failure email is what's left. `ci.yml` runs `pnpm check`, with the security rules tests in the emulator, on every pull request and every push to `main`.
 
 ## 7. One job, front to back
 
@@ -794,6 +799,7 @@ scout/
 │   ├── pipeline/                  the daily job GitHub Actions runs
 │   │   └── src/
 │   │       ├── main.ts            one run: collect, filter, triage, plan, digest
+│   │       ├── production.ts      the run wired to Firestore, the boards, Claude and FCM
 │   │       └── steps/             one file per step
 │   ├── agent/                     the scout server: event hub, commands, Temporal supervisor and agent workflows, activities, fillers
 │   │   └── src/
