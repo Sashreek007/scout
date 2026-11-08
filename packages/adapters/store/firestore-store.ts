@@ -198,5 +198,14 @@ export class FirestoreStore implements Store {
       const snap = await this.#db.collection('runs').get();
       return snap.docs.map((doc) => RunSchema.parse(fromFirestore(doc.data())));
     },
+    deleteBefore: async (cutoff) => {
+      const snap = await this.#db.collection('runs').where('startedAt', '<', cutoff).get();
+      for (const chunk of writeBatches(snap.docs, () => 1)) {
+        const batch = this.#db.batch();
+        for (const doc of chunk) batch.delete(doc.ref);
+        await batch.commit();
+      }
+      return snap.size;
+    },
   };
 }

@@ -332,6 +332,27 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
       });
     });
 
+    describe('runs', () => {
+      it('deletes the runs that started before a cutoff and keeps the rest', async () => {
+        const day = 24 * 60 * 60 * 1000;
+        const old = aRun({
+          id: 'old',
+          startedAt: new Date(T0.getTime() - 91 * day),
+          finishedAt: T0,
+        });
+        const recent = aRun({
+          id: 'recent',
+          startedAt: new Date(T0.getTime() - 89 * day),
+          finishedAt: T0,
+        });
+        await store.runs.put(old);
+        await store.runs.put(recent);
+        expect(await store.runs.deleteBefore(new Date(T0.getTime() - 90 * day))).toBe(1);
+        expect((await store.runs.list()).map((run) => run.id)).toEqual(['recent']);
+        expect(await store.runs.deleteBefore(new Date(T0.getTime() - 90 * day))).toBe(0);
+      });
+    });
+
     describe('config', () => {
       it('reads the defaults while a settings document is missing', async () => {
         expect(await store.config.agent.get()).toEqual(anAgentConfig());
