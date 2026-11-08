@@ -1,8 +1,10 @@
 // The ports: small interfaces for everything that talks to the outside world (docs/architecture.md,
 // section 3). packages/core depends only on these; packages/adapters implements them, and
 // packages/testkit has the fakes the tests use.
+import type { TokenUsage } from './prices';
 import type {
   Actor,
+  AgentConfig,
   AnswerValue,
   Application,
   FormSpec,
@@ -10,6 +12,7 @@ import type {
   JobKey,
   Listing,
   MemoryEntry,
+  ModelsConfig,
   Profile,
   Question,
   Run,
@@ -153,6 +156,11 @@ export interface Store {
     put(run: Run): Promise<void>;
     list(): Promise<Run[]>;
   };
+  /** The settings documents. Each reads as its defaults when the document is missing. */
+  readonly config: {
+    readonly agent: { get(): Promise<AgentConfig>; put(config: AgentConfig): Promise<void> };
+    readonly models: { get(): Promise<ModelsConfig>; put(config: ModelsConfig): Promise<void> };
+  };
 }
 
 export interface Notice {
@@ -193,8 +201,33 @@ export interface PlanResult {
   fields: PlannedField[];
 }
 
+/** What triage gave for one job (#9). */
+export interface TriageOutcome {
+  jobKey: JobKey;
+  /**
+   * The triage, or why there is none: every model it was tried on refused, or the call failed or
+   * gave an answer that didn't fit the schema. A job with no triage is picked up by the next run.
+   */
+  result:
+    { ok: true; triage: Triage } | { ok: false; reason: 'refusal' | 'error'; message: string };
+  /** The model that answered, or that refused last. Null when no model answered. */
+  model: string | null;
+}
+
+/** Every job's outcome from one triage call, with the tokens it used and what they cost. */
+export interface TriageRun {
+  outcomes: TriageOutcome[];
+  usage: TokenUsage;
+  /** Estimated from the token counts and `prices.ts`. */
+  costUsd: number;
+}
+
 /** Every Claude call goes through here, so model, effort and account are set per task (#39). */
 export interface Llm {
-  triage(job: Job, profile: Profile): Promise<Triage>;
+  /**
+   * Triages many jobs at once, one outcome per job in no particular order. The default model goes
+   * through the Batches API at half price (#9). Throws only when nothing could be sent at all.
+   */
+  triage(jobs: readonly Job[], profile: Profile): Promise<TriageRun>;
   plan(input: PlanInput): Promise<PlanResult>;
 }

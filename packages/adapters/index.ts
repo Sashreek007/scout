@@ -26,3 +26,5 @@ export { createLimiter, type Limiter } from './sources/limiter';
 export { connectFirestore } from './store/connect';
 export { clearEmulator, emulatorFirestore } from './store/emulator';
 export { FirestoreStore, fromFirestore } from './store/firestore-store';
+export { ClaudeTriage, type ClaudeTriageOptions } from './llm/claude-triage';
+export { createClaudeClient } from './llm/client';

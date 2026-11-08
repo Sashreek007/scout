@@ -113,7 +113,7 @@ interface FormReader { canRead(job: Job): boolean; read(job: Job): Promise<FormS
 interface FormFiller { canFill(app: Application): boolean; fill(page: Page, sheet: Sheet): Promise<FillReport>; submit(page: Page): Promise<SubmitResult> }
 interface Store      { /* jobs, applications, questions, memory, profile, runs */ }
 interface Notifier   { send(message: Notice): Promise<void> }
-interface Llm        { triage(job: Job, profile: Profile): Promise<Triage>; plan(input: PlanInput): Promise<PlanResult> }
+interface Llm        { triage(jobs: Job[], profile: Profile): Promise<TriageRun>; plan(input: PlanInput): Promise<PlanResult> }
 ```
 
 **Why not one big agent?** One Claude agent with a browser could do all of this. It would also be slow, expensive and hard to test, and it would make different choices on different days. Most of scout's work is plain code: download a JSON file, match a city name, copy an email address into a field. Claude does the four jobs that need judgement:
@@ -253,7 +253,16 @@ One Claude call per new posting that passed the filters. The input is the postin
 | `lead` | Which side of his work should lead the resume: backend, ai or devops. The tailoring step uses it as a starting point. |
 | `flags` | Anything the code filters might have missed, like a citizenship clause in the body text |
 
-Postings scoring above `config/agent.autoQueueScore` go straight to `queued`. The rest wait in the dashboard for him to pick. For Workday and other boards without a public posting API, triage only has the title, company and location, and says so in its reasons.
+Postings decided `apply` with a score at or above `config/agent.autoQueueScore` go straight to `queued`, with an event by `pipeline`. The rest wait in the dashboard for him to pick. For Workday and other boards without a public posting API, triage only has the title, company and location, and its first reason says "Title only".
+
+How a run triages (#9):
+
+- **Which jobs.** Jobs seen this run that passed the filters and have no triage, newest first, at most `config/agent.maxTriagePerRun` (60). A job whose content changed lost its triage in #7, so it is picked again. The first run takes only postings from the last 21 days.
+- **One batch.** All of them go to `config/models.triage`, by default Claude Haiku 5.5 at low effort, in one Message Batches request at half price. The answer is constrained by a JSON schema with structured outputs and checked with `TriageSchema`; reasons are cut to three lines of 120 characters first. The run waits up to 10 minutes for the batch and cancels it after that, so the daily job stays well inside its 20 minutes. Jobs it didn't finish are picked up the next day.
+- **The prompt.** The instructions and what triage needs from his profile come first, marked for caching, so every call after the first reads them from the cache. That is his studies, work permit, availability, targets, wanted terms and excluded employers. His name, email, phone, links and resume files are never sent.
+- **Refusals.** The code checks `stop_reason` before reading an answer. Haiku has no server-side fallback, so a refused job is sent again on its own to `refusalModel`, Claude Sonnet 5.5, with server-side fallback on. If that refuses too, the job stays untriaged and the reason goes in the run's errors.
+- **Cost.** The run records input, output, cache read and cache write tokens, and a cost estimated from `packages/core/prices.ts`. On the saved lists, 60 postings cost well under five cents.
+- **Quality.** Agreement with his own labels on 30 saved postings is measured by the evals in #57, which need his labels first.
 
 ### Form readers
 
@@ -797,6 +806,8 @@ scout/
 │   │   ├── schemas/               Zod schemas: Listing, Job, Application, FormSpec, Sheet, Question, Profile
 │   │   ├── stages.ts              the stages and the allowed moves
 │   │   ├── filters.ts             Canada, role, term, values, eligibility, already applied
+│   │   ├── triage.ts              what triage sends Claude, which jobs it picks, how answers are checked
+│   │   ├── prices.ts              what a Claude call costs, for the run log
 │   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
 │   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed

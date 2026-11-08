@@ -1,10 +1,12 @@
 import {
+  AgentConfigSchema,
   AlreadyExistsError,
   ApplicationSchema,
   assertFirstEvent,
   assertKeepsStage,
   JobSchema,
   MemoryEntrySchema,
+  ModelsConfigSchema,
   NotFoundError,
   ProfileSchema,
   QuestionSchema,
@@ -12,10 +14,12 @@ import {
   StageEventSchema,
   StaleStageError,
   moveStage,
+  type AgentConfig,
   type Application,
   type ApplicationPatch,
   type Job,
   type MemoryEntry,
+  type ModelsConfig,
   type Profile,
   type Question,
   type Run,
@@ -132,6 +136,26 @@ export class InMemoryStore implements Store {
       settle(() => {
         this.#profile = ProfileSchema.parse(profile);
       }),
+  };
+
+  #agentConfig: AgentConfig | null = null;
+  #modelsConfig: ModelsConfig | null = null;
+
+  readonly config: Store['config'] = {
+    agent: {
+      get: () => settle(() => AgentConfigSchema.parse(copy(this.#agentConfig ?? {}))),
+      put: (config) =>
+        settle(() => {
+          this.#agentConfig = AgentConfigSchema.parse(config);
+        }),
+    },
+    models: {
+      get: () => settle(() => ModelsConfigSchema.parse(copy(this.#modelsConfig ?? {}))),
+      put: (config) =>
+        settle(() => {
+          this.#modelsConfig = ModelsConfigSchema.parse(config);
+        }),
+    },
   };
 
   readonly runs: Store['runs'] = {

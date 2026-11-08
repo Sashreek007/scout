@@ -5,6 +5,7 @@ export * from './form';
 export * from './job';
 export * from './listing';
 export * from './memory';
+export * from './models-config';
 export * from './profile';
 export * from './question';
 export * from './run';

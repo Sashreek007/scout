@@ -2,6 +2,7 @@
 // suite against the emulator (#2), so the fake can't drift from the real thing.
 import {
   AlreadyExistsError,
+  ModelsConfigSchema,
   IllegalMoveError,
   NotFoundError,
   StaleStageError,
@@ -18,6 +19,7 @@ import {
   aProfile,
   aQuestion,
   aRun,
+  anAgentConfig,
 } from './builders';
 
 const T0 = new Date('2026-11-05T14:00:00Z');
@@ -327,6 +329,31 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
         expect(await store.runs.get(run.id)).toEqual(run);
         expect(await store.runs.list()).toEqual([run]);
         expect(await store.runs.get('nope')).toBeNull();
+      });
+    });
+
+    describe('config', () => {
+      it('reads the defaults while a settings document is missing', async () => {
+        expect(await store.config.agent.get()).toEqual(anAgentConfig());
+        expect((await store.config.models.get()).triage.model).toBe('claude-haiku-5-5');
+      });
+
+      it('returns the settings that were put', async () => {
+        await store.config.agent.put(anAgentConfig({ autoQueueScore: 90, maxTriagePerRun: 10 }));
+        expect(await store.config.agent.get()).toMatchObject({
+          autoQueueScore: 90,
+          maxTriagePerRun: 10,
+        });
+        const models = ModelsConfigSchema.parse({
+          triage: { model: 'claude-sonnet-5-5', batch: false },
+        });
+        await store.config.models.put(models);
+        expect(await store.config.models.get()).toEqual(models);
+      });
+
+      it('rejects settings that fail their schema', async () => {
+        await expect(store.config.agent.put({ ...anAgentConfig(), workers: 99 })).rejects.toThrow();
+        expect((await store.config.agent.get()).workers).toBe(3);
       });
     });
   });

@@ -1,17 +1,41 @@
 // The pipeline wired to the saved fixtures: the real sources.yaml and boards.yaml, every request
 // sent to the fake job board, and short links never followed. Shared by the unit and emulator tests.
 import { GitHubListSource, createBoardSources, createHttpClient } from '@scout/adapters';
-import type { Store } from '@scout/core';
+import { NO_USAGE, type Llm, type Store } from '@scout/core';
 import type { FakeJobBoard } from '@scout/testkit';
 import { loadBoards } from './config/boards';
 import { loadSources } from './config/sources';
 import type { PipelineDeps } from './pipeline';
 import { knownShortLinks } from './steps/collect';
 
+/** A triager that calls every job a "maybe" scoring 50, for tests that aren't about triage. */
+export const everyJobMaybe: Pick<Llm, 'triage'> = {
+  triage: (jobs) =>
+    Promise.resolve({
+      outcomes: jobs.map((job) => ({
+        jobKey: job.key,
+        result: {
+          ok: true as const,
+          triage: {
+            decision: 'maybe' as const,
+            score: 50,
+            reasons: ['Fixture'],
+            lead: 'backend' as const,
+            flags: [],
+          },
+        },
+        model: 'fixture',
+      })),
+      usage: { ...NO_USAGE },
+      costUsd: 0,
+    }),
+};
+
 export async function fixturePipeline(
   store: Store,
   board: FakeJobBoard,
   clock: () => Date,
+  triager: PipelineDeps['triager'] = () => everyJobMaybe,
 ): Promise<PipelineDeps> {
   const { githubLists, atsFeeds } = await loadSources('sources/sources.yaml');
   const http = createHttpClient({ sleep: () => Promise.resolve() });
@@ -35,6 +59,7 @@ export async function fixturePipeline(
         rewrite: board.rewrite,
         sleep: () => Promise.resolve(),
       }),
+    triager,
     clock,
     commit: null,
   };
