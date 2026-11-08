@@ -2,7 +2,7 @@
 // sent to the fake job board, and short links never followed. Shared by the unit and emulator tests.
 import { GitHubListSource, createBoardSources, createHttpClient } from '@scout/adapters';
 import { NO_USAGE, type Llm, type Store } from '@scout/core';
-import type { FakeJobBoard } from '@scout/testkit';
+import { FakeNotifier, type FakeJobBoard } from '@scout/testkit';
 import { loadBoards } from './config/boards';
 import { loadSources } from './config/sources';
 import type { PipelineDeps } from './pipeline';
@@ -60,6 +60,8 @@ export async function fixturePipeline(
         sleep: () => Promise.resolve(),
       }),
     triager,
+    notifier: new FakeNotifier(),
+    dashboardUrl: null,
     clock,
     commit: null,
   };
