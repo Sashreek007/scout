@@ -327,6 +327,8 @@ A Next.js app that reads Firestore directly with the Firebase web SDK and live l
 
 scout sends four kinds of notification: the daily digest after the morning run, a live question, "needs you at the Mac", and failures. On the Mac they are macOS notifications from the Mac app. On the phone they are web push notifications through Firebase Cloud Messaging, which iOS delivers to a dashboard added to the home screen. Each one opens the right page. A notification never carries an answer button: he answers on the page, where the context is.
 
+The digest (#12) is one short line, like "9 new matches, 4 questions waiting", and opens Today. It is sent after every run, a failed one too, so a missing notification means the run didn't happen. It names any source or step that failed, but not a board that answered 404, which is gone rather than broken. The full digest goes on the run as `runs/{runId}.digest`: the new `apply` and `maybe` jobs, best score first, at most 10, each with company, title, location, score and first reason. It holds job details only, never profile data or answers. `PushNotifier` sends to every device in `devices/{token}`, tries twice more after a failure, and removes a device FCM says is gone. A send that still fails is noted in the run and doesn't fail it. firebase-admin 14 sends to Firebase Installation IDs, so that is what the dashboard registers as a device's token (#49). The Mac app's notification for the digest comes with the Mac app (#55).
+
 ### Mail watcher
 
 Phase 3. It reads Gmail with read-only access and looks for mail from companies he applied to: assessment invites from CodeSignal or HackerRank, interview requests and rejections. Clear cases move the stage. Unclear ones become a question. It runs on the Mac next to the agent, because a Google OAuth app in "Testing" status gets refresh tokens that expire after 7 days. On the Mac he can sign in again in a few seconds.
@@ -636,6 +638,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. The ID is the move's time in milliseconds and the move, like `1793887260000_queued_planning`, so documents sort in the order the moves happened and the security rules can check that a stage change wrote its event. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
+| `devices/{token}` | One phone or browser that gets push notifications: its FCM installation ID, a label and when it was added | The digest goes to every device listed. Tokens are never logged. |
 | `runs/{runId}` | One pipeline or agent run, with counts and errors. Written as `running` at the start with the commit, and closed with `ok`, `partial` or `failed`. Runs older than 90 days are deleted at the start of each run (#11). | The dashboard shows when a source failed. |
 | `kb/bases/items/{baseId}` | A base resume: template, bullets in order, skill rows, the source `.tex`, and whether it is active | Switching the active base is one write, and each resume records which base it used. |
 | `kb/facts/items/{factId}` | A fact about him: claim, numbers, source, status, entry it belongs to | Status decides whether it can be printed. |
@@ -810,6 +813,7 @@ scout/
 │   │   ├── triage.ts              what triage sends Claude, which jobs it picks, how answers are checked
 │   │   ├── prices.ts              what a Claude call costs, for the run log
 │   │   ├── redact.ts              secrets kept out of the run log
+│   │   ├── digest.ts              the daily digest and its one-line notification
 │   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
 │   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed, missed
