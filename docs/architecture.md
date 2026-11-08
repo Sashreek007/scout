@@ -672,6 +672,14 @@ Conventions:
 
 The Spark plan has no scheduled Firestore backups, so scout makes its own. A nightly GitHub Actions job exports every collection to JSON and commits it to a private `scout-backups` repository: daily folders for 30 days, and the first of each month for a year. It reads under 5,000 documents a night. `pnpm scout restore` restores one collection or everything, into the emulator first and into production only with `--confirm`. The Mac's `~/.scout` folder, with session logs and documents, goes in Time Machine. Issue #58.
 
+How it works:
+
+- **When.** `.github/workflows/backup.yml` runs at 09:00 UTC, 2:00 or 3:00 in Edmonton, long after the morning run. It checks out `scout-backups` with a deploy key in the `BACKUPS_DEPLOY_KEY` secret, runs `pnpm scout backup --to backups`, and commits and pushes what changed.
+- **What.** Each day is a folder like `2026-11-04` with one `{collection}.json` per top-level collection and a `manifest.json` with the documents read and the count per collection. Subcollections sit inside their parent document: an application's events, items and resume versions, and the knowledge base's items. Timestamps are kept to the nanosecond, and resume PDFs, already base64, come along. Only `applications` and `kb` are searched for subcollections, so the export doesn't list them for 650 jobs that have none.
+- **Budget.** The export counts the documents it reads and writes nothing if that passes 5,000. On the saved lists it is well under 1,000: about 650 jobs, up to 90 runs and the rest.
+- **Keeping.** After writing today's folder, the job deletes the daily folders older than 30 days, except the first of each month, which it keeps for a year. Deleted folders stay in the repository's git history.
+- **Restoring.** `pnpm scout restore --date 2026-11-04 --collection applications`, or `--all`, reads the folder from a checkout of `scout-backups`, by default `../scout-backups`, and writes every document back with its subcollections. Documents that exist now but aren't in the backup are left alone, so a restore never deletes anything. With `FIRESTORE_EMULATOR_HOST` set it writes the emulator. Without it, it refuses unless `--confirm` is given.
+
 ### Security rules
 
 The pipeline and the agent use the Firebase Admin SDK with a service account, which skips security rules. So the service account key is the most sensitive secret in the project. It lives only in GitHub Actions secrets and in the Mac's `.env`.
@@ -724,7 +732,7 @@ Setup steps:
 4. Create the Vercel project with the Firebase web config, which is public and not a secret.
 5. Turn on Firebase Cloud Messaging and generate the web push key for the dashboard.
 6. Set a monthly spend limit on the Anthropic API key. Store the key as the `ANTHROPIC_API_KEY` repository secret, and the service account key as `FIREBASE_SERVICE_ACCOUNT`. The daily workflow reads only those two; the project comes from the key's `project_id`.
-7. Create the private `scout-backups` repository and give the nightly job a deploy key for it.
+7. Create the private `scout-backups` repository and give the nightly job a deploy key for it, with write access, stored as the `BACKUPS_DEPLOY_KEY` secret in this repository.
 8. Include `~/.scout` in Time Machine.
 9. Once the dashboard is on Vercel, set its address as the `SCOUT_DASHBOARD_URL` repository variable, so the digest links to Today.
 
@@ -800,6 +808,7 @@ scout/
 │   │   └── src/
 │   │       ├── main.ts            one run: collect, filter, triage, plan, digest
 │   │       ├── production.ts      the run wired to Firestore, the boards, Claude and FCM
+│   │       ├── backup.ts          the nightly export, pruning and restore
 │   │       └── steps/             one file per step
 │   ├── agent/                     the scout server: event hub, commands, Temporal supervisor and agent workflows, activities, fillers
 │   │   └── src/

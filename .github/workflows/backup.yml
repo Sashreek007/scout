@@ -1,0 +1,50 @@
+# The nightly backup (docs/architecture.md, section 6, "Backups"; issue #58). The Spark plan has no
+# scheduled Firestore backups, so every collection is exported to JSON and committed to the private
+# scout-backups repository: a folder per day, kept 30 days, and the first of each month for a year.
+name: Nightly backup
+
+on:
+  # 09:00 UTC is 2:00 in Edmonton in winter and 3:00 in summer, long after the 14:00 run.
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # A deploy key with write access to scout-backups only, so this job can't touch anything else.
+      - name: Check out scout-backups
+        uses: actions/checkout@v7
+        with:
+          repository: Sashreek007/scout-backups
+          ssh-key: ${{ secrets.BACKUPS_DEPLOY_KEY }}
+          path: backups
+      - name: Export Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: pnpm scout backup --to backups
+      - name: Commit and push
+        working-directory: backups
+        run: |
+          git config user.name "scout backup"
+          git config user.email "scout-backup@users.noreply.github.com"
+          git add --all
+          git diff --cached --quiet || git commit --quiet -m "Backup $(date -u +%Y-%m-%d)"
+          git push --quiet
