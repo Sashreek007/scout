@@ -2,6 +2,7 @@ import {
   AgentConfigSchema,
   AlreadyExistsError,
   ApplicationSchema,
+  DeviceSchema,
   assertFirstEvent,
   assertKeepsStage,
   JobSchema,
@@ -16,6 +17,7 @@ import {
   moveStage,
   type AgentConfig,
   type Application,
+  type Device,
   type ApplicationPatch,
   type Job,
   type MemoryEntry,
@@ -135,6 +137,21 @@ export class InMemoryStore implements Store {
     put: (profile) =>
       settle(() => {
         this.#profile = ProfileSchema.parse(profile);
+      }),
+  };
+
+  readonly #devices = new Map<string, Device>();
+
+  readonly devices: Store['devices'] = {
+    list: () => settle(() => [...this.#devices.values()].map(copy)),
+    put: (device) =>
+      settle(() => {
+        const parsed = DeviceSchema.parse(device);
+        this.#devices.set(parsed.token, parsed);
+      }),
+    remove: (token) =>
+      settle(() => {
+        this.#devices.delete(token);
       }),
   };
 
