@@ -27,6 +27,8 @@ rev = d.box("Review screen", "PDF, diff against its base,<br>source of every bul
 ok = d.v("You<br>approve?", 1470, 440, 110, 80, "rhombus;")
 agent = d.box("Agent uploads it", "hash checked first", 1640, 450, 180, 60)
 d.e(jd, plan, "", "exitX=1;exitY=0.5;entryX=0;entryY=0.5;")
+runs = d.box("Where the plan runs", "the API by default, or a Claude Code<br>session on your Claude plan, using<br>scout's MCP tools; back to the API<br>when the plan hits its limit", 40, 560, 230, 100, "dashed=1;align=left;spacingLeft=8;", logo="si:claude")
+d.e(runs, plan, "", "exitX=1;exitY=0.2;entryX=0.1;entryY=1;dashed=1;")
 d.e(kbg, plan, "facts, bullets, rules, decisions", "exitX=0.25;exitY=1;entryX=0.5;entryY=0;dashed=1;", points=[(665, 400), (405, 400)])
 d.e(plan, rend, "", "")
 d.e(rend, comp, "", "")

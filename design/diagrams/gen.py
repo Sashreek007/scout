@@ -74,7 +74,7 @@ s3 = d.box("Company application pages", "Greenhouse, Lever and Ashby forms<br>Wo
 d.group("GitHub Actions (once a day)", 380, 80, 330, 300, logo="si:githubactions")
 pl = d.box("Pipeline", "collect and dedupe postings<br>Canada and hard filters<br>triage with Claude<br>read forms, plan answers<br>send the daily digest", 410, 130, 270, 220)
 d.group("Your Mac", 380, 470, 330, 340, logo="si:apple")
-ag = d.box("scout server", "supervisor and agents fill approved<br>applications, read every value back,<br>stream live events to every client", 410, 520, 270, 110)
+ag = d.box("scout server", "agents fill forms ahead while you<br>review, read every value back, and<br>stream live events to every client", 410, 520, 270, 110)
 ch = d.box("Chrome via Playwright", "a separate scout profile", 410, 690, 270, 80, logo=["si:googlechrome","fav:playwright.dev"])
 d.group("Firebase (Spark plan)", 800, 220, 300, 340, logo="si:firebase")
 au = d.box("Firebase Auth", "Google sign-in, one user", 830, 280, 240, 60)
@@ -119,7 +119,7 @@ d.e(start, q, "you, or<br>auto rule", "exitX=1;exitY=0.5;entryX=0;entryY=0.5;fon
 d.e(q, p, "pipeline", "fontSize=11;")
 d.e(p, na, "pipeline", "fontSize=11;")
 d.e(na, rv, "you answer", "fontSize=11;")
-d.e(rv, ap, "you approve", "fontSize=11;")
+d.e(rv, ap, "you approve: on the<br>sheet or the filled form", "fontSize=11;")
 d.e(ap, fi, "agent claims", "exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=11;")
 d.e(fi, ad, "agent, or you on hold:<br>confirmation seen", "fontSize=11;")
 # over the top
@@ -170,11 +170,11 @@ def coll(path, fields, x, y, w, h):
 pr = coll("profile/main", ["identity, links, education", "workAuthorization, availability", "relocation, compensation", "resumes: variant, file, sha256", "filters: excluded employers,", "roles, terms, daily cap"], 40, 70, 320, 160)
 rn = coll("runs/{runId}", ["kind: pipeline or agent", "startedAt, finishedAt", "counts per source, errors[]"], 40, 290, 320, 100)
 jb = coll("jobs/{jobKey}", ["company, title, locations[], terms[]", "ats, boardToken, applyUrl", "sources[], firstSeenAt, lastSeenAt", "active, contentHash, description", "filter: passed, reasons[]", "triage: decision, score, reasons[],", "resumeVariant, model, at"], 420, 70, 340, 190)
-apl = coll("applications/{jobKey}", ["stage, stageAt, company, title", "formSpec: fields[]", "sheet: fields[] with answer, source,", "evidence, approved", "resumeVariant, resumeSha256", "lease: owner, until", "submitAttemptAt, submittedAt", "confirmationText, nextAction, due, notes"], 420, 320, 340, 215)
+apl = coll("applications/{jobKey}", ["stage, stageAt, company, title", "formSpec: fields[]", "sheet: fields[] with answer, source,", "evidence, matchedBy, state", "resumeVariant, resumeSha256", "lease: owner, until, fill or prefill", "submitAttemptAt, submittedAt", "confirmationText, nextAction, due, notes"], 420, 320, 340, 215)
 ev = coll("applications/{jobKey}/events/{eventId}", ["from, to, by, at, detail"], 420, 595, 340, 65)
-mm = coll("memory/{questionKey}", ["question, answer", "kind: fact or preference", "createdAt, lastUsedAt, useCount"], 820, 70, 320, 100)
+mm = coll("memory/{questionKey}", ["questionType, canonical answer", "kind: fact or preference", "wordings[]: text, embedding", "confirmedAt, lastUsedAt, useCount"], 820, 70, 320, 120)
 qu = coll("questions/{questionId}", ["applicationId, fieldId", "label, type, options[]", "askedAt, answer, answeredAt", "remember"], 820, 230, 320, 120)
-cf = coll("config/agent", ["paused, dailyCap", "finalClick: auto or hold", "autoQueueScore"], 820, 410, 320, 95)
+cf = coll("config/agent", ["paused, dailyCap", "finalClick: auto or hold", "autoQueueScore, reviewIdleMinutes"], 820, 410, 320, 95)
 ct = coll("counters/{date}", ["applied today, checked against dailyCap"], 820, 560, 320, 65)
 d.e(apl, jb, "same document ID", "exitX=0.5;exitY=0;entryX=0.5;entryY=1;")
 d.e(ev, apl, "subcollection", "exitX=0.5;exitY=0;entryX=0.5;entryY=1;")
@@ -183,7 +183,7 @@ d.e(qu, mm, "answer saved to", "exitX=0.5;exitY=0;entryX=0.5;entryY=1;dashed=1;"
 d.save()
 
 # ---------- sequence helper ----------
-LOGO_FOR = {":GitHub Actions":"si:githubactions", ":Sources":"si:github", ":Claude API":"si:anthropic", ":Firestore":"si:firebase", ":Notifications":"si:firebase", ":Dashboard":"si:nextdotjs", ":Chrome":"si:googlechrome", ":Greenhouse form":"si:greenhouse"}
+LOGO_FOR = {":GitHub Actions":"si:githubactions", ":Sources":"si:github", ":Claude API":"si:anthropic", ":Firestore":"si:firebase", ":Notifications":"si:firebase", ":Dashboard":"si:nextdotjs", ":Chrome":"si:googlechrome", ":Greenhouse form":"si:greenhouse", ":Mac app":"si:apple"}
 def sequence(name, title, parts, msgs, notes, height):
     d = D(name)
     d.text(title, 0, 0, 900, 30, TITLE)
@@ -243,27 +243,33 @@ sequence("daily-run", "Step 1. The daily run finds, filters, triages and plans",
      "notes": [("src", "Hard filters run in code before Claude:<br>Canada, role, term, values,<br>citizenship or PR, already applied", 282, 230, 60)]},
     900)
 
-sequence("apply", "Step 2. You answer and approve, then the agent applies",
-    [("me", "Sashreek", "actor"), ("db", ":Dashboard", "box"), ("fs", ":Firestore", "box"),
-     ("ag", ":Agent", "box"), ("ch", ":Chrome", "box"), ("gh", ":Greenhouse form", "box"), ("dc", ":Notifications", "box")],
+sequence("apply", "Step 2. You answer and approve, then review the filled form and apply",
+    [("me", "Sashreek", "actor"), ("db", ":Dashboard", "box"), ("mac", ":Mac app", "box"), ("fs", ":Firestore", "box"),
+     ("ag", ":scout server", "box"), ("ch", ":Chrome", "box"), ("gh", ":Greenhouse form", "box")],
     [("call", "me", "db", "answers: in person OK? Yes", 150),
      ("call", "db", "fs", "save the answer; stage review", 190),
-     ("call", "me", "db", "edits the essay, taps Approve", 240),
-     ("call", "db", "fs", "stage approved", 280),
-     ("call", "ag", "fs", "claim it in a transaction", 330),
-     ("ret", "fs", "ag", "claimed, stage filling", 370),
-     ("call", "ag", "ch", "open applyUrl in the scout profile", 410),
-     ("call", "ch", "gh", "GET the application page", 450),
-     ("call", "ag", "ch", "fill from the sheet, attach resume", 490),
-     ("call", "ag", "ch", "read back every value", 530),
-     ("ret", "ch", "ag", "values match the sheet", 570),
-     ("call", "ag", "fs", "write submitAttemptAt", 610),
-     ("call", "ag", "ch", "click Submit", 650),
-     ("call", "ch", "gh", "POST the application", 690),
-     ("ret", "gh", "ch", "confirmation page", 730),
-     ("call", "ag", "fs", "stage applied, submittedAt, event", 770),
-     ("call", "ag", "dc", "Applied: Northwind Robotics", 810),
-     ("ret", "fs", "db", "listener: the card moves to Applied", 850)],
-    {"act": [("ag", 325, 825)],
-     "notes": [("ch", "A CAPTCHA, a login wall or a field<br>not on the sheet stops the run here.<br>The stage becomes needs_hand or<br>needs_answers and a notification pings you.", 580, 250, 76)]},
-    840)
+     ("call", "me", "db", "approves the resume and essay", 240),
+     ("call", "db", "fs", "resume approved, essay accepted", 280),
+     ("call", "me", "mac", "that evening: clicks Review", 330),
+     ("call", "mac", "ag", "start_review", 370),
+     ("call", "ag", "fs", "prefill lease in a transaction", 410),
+     ("ret", "fs", "ag", "claimed, stage stays review", 450),
+     ("call", "ag", "ch", "open applyUrl in a scout tab", 490),
+     ("call", "ch", "gh", "GET the application page", 530),
+     ("call", "ag", "ch", "attach resume, fill from the sheet", 570),
+     ("call", "ag", "mac", "panel: 14 proposed answers with sources", 610),
+     ("self", "ag", None, "other workers fill the next forms", 640),
+     ("call", "me", "mac", "Accept all, or Tab field by field", 690),
+     ("call", "mac", "ag", "accept_fields", 730),
+     ("call", "ag", "fs", "review to approved to filling", 770),
+     ("call", "ag", "ch", "read back every value", 810),
+     ("ret", "ch", "ag", "values match the sheet", 850),
+     ("call", "ag", "fs", "write submitAttemptAt", 890),
+     ("call", "me", "ch", "clicks Submit: the board is set to hold", 930),
+     ("call", "ch", "gh", "POST the application", 970),
+     ("ret", "gh", "ch", "confirmation page", 1010),
+     ("call", "ag", "fs", "stage applied, submittedAt, event", 1050),
+     ("call", "ag", "mac", "the next form is already filled", 1090)],
+    {"act": [("ag", 365, 1105)],
+     "notes": [("ch", "A CAPTCHA, a login wall or a field<br>not on the sheet stops the run here.<br>The stage becomes needs_hand or<br>needs_answers and a notification pings you.", 800, 250, 76)]},
+    1120)

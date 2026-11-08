@@ -1,10 +1,14 @@
 from base import *
 
-def sheet_row(label, req, answer, s, evidence, extra="", voluntary=False, highlight=False):
+MATCH_STATE = {"accepted": ("#34D399", "Accepted"), "proposed": ("#6E9BFF", "Proposed"), "read": ("#A78BFA", "Read first")}
+def sheet_row(label, req, answer, s, evidence, extra="", voluntary=False, highlight=False, how="rule", state="proposed"):
     r = '<span style="color:var(--red)">*</span>' if req else ""
     v = '<div class="note">Voluntary</div>' if voluntary else ""
     bg = ' style="background:#FBF8FF"' if highlight else ""
-    return f'''<tr{bg}><td style="width:250px"><div class="t1" style="font-size:12.5px">{label}{r}</div>{v}</td><td>{answer}</td><td style="width:110px">{src(s)}</td><td style="width:230px"><span class="mono muted" style="font-size:11px;word-break:break-all">{evidence}</span></td></tr>'''
+    col, txt = MATCH_STATE[state]
+    st = f'<div class="hstack" style="gap:5px;margin-top:3px"><span style="width:6px;height:6px;border-radius:50%;background:{col}"></span><span class="note" style="color:{col}">{txt}</span></div>'
+    badge = f'<div style="margin-top:4px"><span class="mono" style="font-size:11px;color:var(--muted);background:rgba(255,255,255,0.05);border-radius:6px;padding:1px 6px">{how}</span></div>'
+    return f'''<tr{bg}><td style="width:250px"><div class="t1" style="font-size:12.5px">{label}{r}</div>{v}{st}</td><td>{answer}</td><td style="width:110px">{src(s)}{badge}</td><td style="width:230px"><span class="mono muted" style="font-size:11px;word-break:break-all">{evidence}</span></td></tr>'''
 
 draft = '''<div class="textarea" style="min-height:0;border-color:#C9B8F0">Northwind's platform team runs the services that keep warehouse robots moving, which is the kind of system I like building. My API key and quota service taught me to care about latency and failure modes, and I'd like to bring that to your Go services.</div>
 <div class="hstack note" style="margin-top:6px"><span>62 of 150 words</span><span class="sp"></span><span class="btn sm">Edit</span><span class="btn sm pri">Approve draft</span></div>'''
@@ -20,9 +24,9 @@ sheet_rows = "".join([
  sheet_row("Are you legally eligible to work in Canada?",True,"Yes","profile","work_authorization.canada"),
  sheet_row("Will you now or in the future require sponsorship?",True,"No","profile","work_authorization.requires_sponsorship_for_coop"),
  sheet_row("Earliest start date",True,"January 5, 2027","profile","availability.earliest_start"),
- sheet_row("How did you hear about us?",False,"Job board","memory","how did you hear about us"),
- sheet_row("Are you available for in-person interviews in Toronto?",True,"Yes","you","answered today 8:12 · remembered"),
- sheet_row("Why do you want to work at Northwind Robotics?",True,draft,"draft","posting + projects.mint",highlight=True),
+ sheet_row("Where did you find this role?",False,"Job board","memory","how_heard, answered for Cohere",how="type 0.91"),
+ sheet_row("Are you available for in-person interviews in Toronto?",True,"Yes","you","answered today 8:12, remembered",how="exact",state="accepted"),
+ sheet_row("Why do you want to work at Northwind Robotics?",True,draft,"draft","posting + projects.mint",highlight=True,how="drafted",state="read"),
  sheet_row("Gender",False,"I don't wish to answer","policy","demographics.policy",voluntary=True),
  sheet_row("Are you Hispanic/Latino?",False,"Decline to self-identify","policy","demographics.policy",voluntary=True),
 ])
@@ -32,12 +36,12 @@ def ev(color, text, who):
 
 app_head = lambda st, actions: f'''<div class="hstack" style="align-items:flex-start">
 <div class="vstack" style="gap:6px"><div class="hstack"><span style="font-size:22px;font-weight:700;letter-spacing:-.4px">Northwind Robotics</span>{st}</div>
-<div class="hstack muted" style="gap:14px"><span>Software Developer Intern</span><span>Toronto, ON · hybrid</span><span>Winter 2027</span>{ats("gh")}<span class="hstack">{score(82)}<span class="mono">backend</span></span></div></div>
+<div class="hstack muted" style="gap:14px;white-space:nowrap"><span>Software Developer Intern</span><span>Toronto, ON · hybrid</span><span>Winter 2027</span>{ats("gh")}<span class="hstack">{score(82)}<span class="mono">backend</span></span></div></div>
 <span class="sp"></span>{actions}</div>'''
 
 review_body = f'''
-{app_head(stage("review"), '<span class="btn">'+icon("ext","#38413B",13)+'Posting</span><span class="btn danger">Skip</span><span class="btn dis">'+icon("check","#A3A69F",13)+'Approve sheet</span>')}
-<div class="banner b-amber">{icon("alert","#9A600A",16)}<div style="font-size:12.5px"><b>Approve is locked until 1 draft is approved.</b> Every other field traces to your profile, memory, a policy, or an answer you gave. Once approved, the agent types exactly these values and reads each one back before it submits.</div></div>
+{app_head(stage("review"), '<span class="btn danger">Skip</span><span class="btn dis">'+icon("check","#A3A69F",13)+'Approve sheet</span><span class="btn pri">'+icon("mac","#0D0D0D",13)+'Review on the filled form</span>')}
+<div class="banner b-amber">{icon("alert","#9A600A",16)}<div style="font-size:12.5px"><b>Approve is locked until 1 draft is approved.</b> Every other field traces to your profile, memory, a policy, or an answer you gave. Once approved, the agent types exactly these values and reads each one back before it submits. At the Mac you can also review on the filled form: an agent fills it from this sheet and you accept the answers on the page.</div></div>
 <div class="tabs"><div class="tab on">Answer sheet <span class="n">15</span></div><div class="tab">Posting</div><div class="tab">History <span class="n">6</span></div><div class="tab">Notes</div></div>
 <div class="row" style="align-items:flex-start">
  <div class="card" style="flex:1;overflow:hidden"><table style="table-layout:fixed"><colgroup><col style="width:220px"><col><col style="width:116px"><col style="width:200px"></colgroup><tr><th>Field</th><th>Answer</th><th>Source</th><th>Evidence</th></tr>{sheet_rows}</table></div>
@@ -49,6 +53,7 @@ review_body = f'''
    <div class="hstack">{src("you")}<span class="sp"></span><span class="mono">1</span></div>
    <div class="hstack">{src("policy")}<span class="sp"></span><span class="mono">2</span></div>
    <div class="hstack">{src("draft")}<span class="sp"></span><span class="mono">1</span></div>
+   <div class="divider"></div><span class="sectionlabel">How they matched</span><div class="hstack"><span class="mono muted" style="font-size:12px">rule</span><span class="sp"></span><span class="mono">10</span></div><div class="hstack"><span class="mono muted" style="font-size:12px">exact</span><span class="sp"></span><span class="mono">1</span></div><div class="hstack"><span class="mono muted" style="font-size:12px">type</span><span class="sp"></span><span class="mono">1</span></div><div class="hstack"><span class="mono muted" style="font-size:12px">policy</span><span class="sp"></span><span class="mono">2</span></div>
    <div class="note">Claude facts must name a profile field. Anything it couldn't ground became a question.</div></div></div>
   <div class="card"><div class="cardh"><h2>Form</h2></div><div class="cardb vstack" style="gap:8px;font-size:12.5px">
    <div class="hstack"><span class="muted">Read from</span><span class="sp"></span>Greenhouse questions API</div>
