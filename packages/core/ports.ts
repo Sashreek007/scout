@@ -3,6 +3,7 @@
 // packages/testkit has the fakes the tests use.
 import type {
   Actor,
+  AgentConfig,
   AnswerValue,
   Application,
   FormSpec,
@@ -10,6 +11,7 @@ import type {
   JobKey,
   Listing,
   MemoryEntry,
+  ModelsConfig,
   Profile,
   Question,
   Run,
@@ -152,6 +154,11 @@ export interface Store {
     get(id: string): Promise<Run | null>;
     put(run: Run): Promise<void>;
     list(): Promise<Run[]>;
+  };
+  /** The settings documents. Each reads as its defaults when the document is missing. */
+  readonly config: {
+    readonly agent: { get(): Promise<AgentConfig>; put(config: AgentConfig): Promise<void> };
+    readonly models: { get(): Promise<ModelsConfig>; put(config: ModelsConfig): Promise<void> };
   };
 }
 

@@ -1,8 +1,10 @@
 import {
+  AgentConfigSchema,
   AlreadyExistsError,
   ApplicationSchema,
   JobSchema,
   MemoryEntrySchema,
+  ModelsConfigSchema,
   NotFoundError,
   ProfileSchema,
   QuestionSchema,
@@ -162,6 +164,27 @@ export class FirestoreStore implements Store {
     get: async () => read(ProfileSchema, (await this.#db.doc('profile/main').get()).data()),
     put: async (profile) => {
       await this.#db.doc('profile/main').set(ProfileSchema.parse(profile));
+    },
+  };
+
+  readonly config: Store['config'] = {
+    agent: {
+      get: async () =>
+        AgentConfigSchema.parse(
+          fromFirestore((await this.#db.doc('config/agent').get()).data() ?? {}),
+        ),
+      put: async (config) => {
+        await this.#db.doc('config/agent').set(AgentConfigSchema.parse(config));
+      },
+    },
+    models: {
+      get: async () =>
+        ModelsConfigSchema.parse(
+          fromFirestore((await this.#db.doc('config/models').get()).data() ?? {}),
+        ),
+      put: async (config) => {
+        await this.#db.doc('config/models').set(ModelsConfigSchema.parse(config));
+      },
     },
   };
 
