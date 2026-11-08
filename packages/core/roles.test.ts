@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStudentRole, termsInTitle } from './roles';
+import { isStudentRole, termsInTitle, titleWithoutTerms } from './roles';
 
 describe('isStudentRole', () => {
   it.each([
@@ -60,5 +60,15 @@ describe('termsInTitle', () => {
 
   it('finds no term without a year', () => {
     expect(termsInTitle('Summer Intern')).toEqual({ rawTerm: null, terms: [] });
+  });
+});
+
+describe('titleWithoutTerms', () => {
+  it('takes out every season and year a title names', () => {
+    expect(titleWithoutTerms('Software Developer Intern (Winter 2027)')).toBe(
+      'Software Developer Intern ( )',
+    );
+    expect(titleWithoutTerms('Intern, Summer 2027 / Fall 2027')).toBe('Intern,   /  ');
+    expect(titleWithoutTerms('Software Developer Intern')).toBe('Software Developer Intern');
   });
 });
