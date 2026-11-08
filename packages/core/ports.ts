@@ -107,6 +107,11 @@ export interface Store {
   readonly jobs: {
     get(key: JobKey): Promise<Job | null>;
     put(job: Job): Promise<void>;
+    /**
+     * Writes many jobs, in batches of at most 500 writes (#7). Every job is checked against its
+     * schema before the first batch, so one bad job writes nothing.
+     */
+    putMany(jobs: readonly Job[]): Promise<void>;
     list(): Promise<Job[]>;
   };
   readonly applications: {

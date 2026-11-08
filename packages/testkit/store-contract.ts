@@ -79,6 +79,29 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
         expect(jobs[0]?.missedRuns).toBe(1);
       });
 
+      it('writes many jobs at once, updating the ones already there', async () => {
+        await store.jobs.put(aJob({ missedRuns: 2 }));
+        const jobs = Array.from({ length: 501 }, (_, i) =>
+          aJob({
+            key: `greenhouse:northwind:${String(4100001 + i)}`,
+            postingId: String(4100001 + i),
+          }),
+        );
+        await store.jobs.putMany(jobs);
+        const stored = await store.jobs.list();
+        expect(stored).toHaveLength(501);
+        expect(await store.jobs.get('greenhouse:northwind:4100001')).toEqual(jobs[0]);
+        await store.jobs.putMany([]);
+        expect(await store.jobs.list()).toHaveLength(501);
+      });
+
+      it('writes none of many jobs when one fails its schema', async () => {
+        await expect(
+          store.jobs.putMany([aJob(), { ...aJob({ key: 'greenhouse:northwind:2' }), sources: [] }]),
+        ).rejects.toThrow();
+        expect(await store.jobs.list()).toEqual([]);
+      });
+
       it('rejects a job that fails its schema and stores nothing', async () => {
         await expect(store.jobs.put({ ...aJob(), sources: [] })).rejects.toThrow();
         expect(await store.jobs.list()).toEqual([]);

@@ -1,3 +1,4 @@
+export * from './batches';
 export * from './boards';
 export * from './env';
 export * from './errors';

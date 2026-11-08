@@ -13,6 +13,7 @@ import {
   assertKeepsStage,
   eventId,
   moveStage,
+  writeBatches,
   type Store,
 } from '@scout/core';
 import { Timestamp, type DocumentData, type Firestore } from 'firebase-admin/firestore';
@@ -56,6 +57,14 @@ export class FirestoreStore implements Store {
     put: async (job) => {
       const parsed = JobSchema.parse(job);
       await this.#db.doc(`jobs/${parsed.key}`).set(parsed);
+    },
+    putMany: async (jobs) => {
+      const parsed = jobs.map((job) => JobSchema.parse(job));
+      for (const chunk of writeBatches(parsed)) {
+        const batch = this.#db.batch();
+        for (const job of chunk) batch.set(this.#db.doc(`jobs/${job.key}`), job);
+        await batch.commit();
+      }
     },
     list: async () => {
       const snap = await this.#db.collection('jobs').get();
