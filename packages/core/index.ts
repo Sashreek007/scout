@@ -1,5 +1,6 @@
 export * from './batches';
 export * from './boards';
+export * from './closing';
 export * from './env';
 export * from './errors';
 export * from './filters';
