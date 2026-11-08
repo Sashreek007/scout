@@ -79,3 +79,37 @@ describe('ci.yml', () => {
     expect(pkg.scripts.test).toContain('firebase emulators:exec');
   });
 });
+
+describe('backup.yml', () => {
+  const backup = read('backup.yml');
+  const job = backup.jobs.backup;
+  if (!job) throw new Error('backup.yml has no backup job');
+
+  it('runs every night at 09:00 UTC, after the morning run, and by hand', () => {
+    expect(backup.on).toEqual({ schedule: [{ cron: '0 9 * * *' }], workflow_dispatch: null });
+    expect(backup.concurrency).toEqual({ group: 'nightly-backup', 'cancel-in-progress': false });
+  });
+
+  it('exports into a checkout of the private scout-backups repository and pushes it', () => {
+    const checkout = job.steps.find((s) => s.name === 'Check out scout-backups');
+    expect(checkout?.with).toEqual({
+      repository: 'Sashreek007/scout-backups',
+      'ssh-key': '${{ secrets.BACKUPS_DEPLOY_KEY }}',
+      path: 'backups',
+    });
+    const exported = job.steps.find((s) => s.name === 'Export Firestore');
+    expect(exported?.run).toBe('pnpm scout backup --to backups');
+    expect(exported?.env).toEqual({
+      FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}',
+    });
+    expect(job.steps.at(-1)?.run).toContain('git push');
+  });
+
+  it('uses only the service account and the deploy key', () => {
+    const secrets = JSON.stringify(backup).match(/secrets\.\w+/g) ?? [];
+    expect([...new Set(secrets)].sort()).toEqual([
+      'secrets.BACKUPS_DEPLOY_KEY',
+      'secrets.FIREBASE_SERVICE_ACCOUNT',
+    ]);
+  });
+});
