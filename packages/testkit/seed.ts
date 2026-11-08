@@ -55,7 +55,12 @@ export function devSeed(): DevSeed {
     rawTerm: null,
     terms: [],
     contentHash: 'b'.repeat(64),
-    filter: { passed: false, reasons: ['role'], flags: ['term_unknown'] },
+    filter: {
+      passed: false,
+      reasons: ['role'],
+      flags: ['term_unknown'],
+      details: { role: 'a senior role, not a student one', term_unknown: 'no term given' },
+    },
   });
   const maple = aJob({
     key: 'lever:mapleledger:7d1e2f',

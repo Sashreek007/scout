@@ -350,7 +350,7 @@ describe('buildJobs: new, changed and unchanged', () => {
   });
 
   const triaged = {
-    filter: { passed: true, reasons: [], flags: [] },
+    filter: { passed: true, reasons: [], flags: [], details: {} },
     triage: {
       decision: 'apply' as const,
       score: 82,

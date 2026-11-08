@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Sha256Schema } from './common';
+import { Sha256Schema, TermSchema } from './common';
 
 /**
  * `profile/main`: every fact about him that a form can ask for. Keys mirror `profile/profile.yaml`,
@@ -35,6 +35,77 @@ function optional<T extends z.ZodType>(schema: T) {
 }
 
 const Text = z.string().trim().min(1);
+
+/**
+ * The role filter's defaults (#8): words that mark the software, AI and DevOps roles he targets.
+ * Generous on purpose, because a dropped posting never reaches triage and he never sees it.
+ */
+export const DEFAULT_ROLE_KEYWORDS = [
+  'software',
+  'developer',
+  'development',
+  'programmer',
+  'programming',
+  'engineer',
+  'engineering',
+  'ai',
+  'genai',
+  'artificial intelligence',
+  'ml',
+  'machine learning',
+  'deep learning',
+  'llm',
+  'data',
+  'devops',
+  'sre',
+  'site reliability',
+  'reliability',
+  'cloud',
+  'platform',
+  'infrastructure',
+  'backend',
+  'back end',
+  'frontend',
+  'front end',
+  'full stack',
+  'fullstack',
+  'web',
+  'mobile',
+  'ios',
+  'android',
+  'firmware',
+  'embedded',
+  'linux',
+  'qa',
+  'quality assurance',
+  'security',
+  'cybersecurity',
+  'automation',
+  'computer science',
+  'computing',
+  'science',
+  'it',
+  'technology',
+  'technical',
+  'research',
+  'researcher',
+  'scientist',
+  'quant',
+  'quantitative',
+  'analytics',
+  'systems',
+  'libraries',
+] as const;
+
+/** Titles that fail the role filter by default: hardware, analog, mechanical, sales, marketing. */
+export const DEFAULT_EXCLUDED_ROLE_KEYWORDS = [
+  'hardware',
+  'analog',
+  'mixed signal',
+  'mechanical',
+  'sales',
+  'marketing',
+] as const;
 
 const MONTHS =
   'January|February|March|April|May|June|July|August|September|October|November|December';
@@ -120,6 +191,18 @@ export const ProfileSchema = z.strictObject({
     location: z.literal('canada_only'),
     target_roles: z.array(Text).min(1),
     daily_cap: z.int().positive().nullable(),
+    /** A title must name one of these to pass the role filter (#8). Matched as whole words. */
+    role_keywords: z
+      .array(Text)
+      .min(1)
+      .default([...DEFAULT_ROLE_KEYWORDS]),
+    /** A title that names any of these fails the role filter, even if it names a target. */
+    excluded_role_keywords: z.array(Text).default([...DEFAULT_EXCLUDED_ROLE_KEYWORDS]),
+    /**
+     * The terms he wants, like `Winter 2027`. Left empty, every term that starts on or after
+     * `availability.earliest_start` passes the term filter.
+     */
+    terms: z.array(TermSchema).default([]),
   }),
 });
 export type Profile = z.infer<typeof ProfileSchema>;

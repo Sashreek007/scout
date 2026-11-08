@@ -27,15 +27,32 @@ export const FILTER_REASONS = [
 export const FilterReasonSchema = z.enum(FILTER_REASONS);
 export type FilterReason = z.infer<typeof FilterReasonSchema>;
 
-/** Flags don't drop a job; they mark it for a closer look. */
-export const FilterFlagSchema = z.enum(['term_unknown', 'values_review', 'clearance']);
+/**
+ * Flags don't drop a job; they mark it for a closer look. `eligibility_review` marks a citizen or
+ * PR clause that also lets a work permit in, which his co-op permit may meet.
+ */
+export const FILTER_FLAGS = [
+  'term_unknown',
+  'values_review',
+  'clearance',
+  'eligibility_review',
+] as const;
+export const FilterFlagSchema = z.enum(FILTER_FLAGS);
 export type FilterFlag = z.infer<typeof FilterFlagSchema>;
+
+export const FilterCodeSchema = z.enum([...FILTER_REASONS, ...FILTER_FLAGS]);
+export type FilterCode = z.infer<typeof FilterCodeSchema>;
 
 export const FilterResultSchema = z
   .strictObject({
     passed: z.boolean(),
     reasons: z.array(FilterReasonSchema),
     flags: z.array(FilterFlagSchema),
+    /**
+     * What each reason or flag found, like `General Dynamics is on the excluded employers`, so the
+     * dashboard can show why (#44). Results stored before #8 load with none.
+     */
+    details: z.partialRecord(FilterCodeSchema, z.string().min(1)).default({}),
   })
   .refine((result) => result.passed === (result.reasons.length === 0), {
     message: 'a job passes exactly when no filter gave a reason',
