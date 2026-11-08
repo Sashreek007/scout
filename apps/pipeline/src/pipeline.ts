@@ -93,6 +93,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
     tokens: { ...NO_USAGE },
     costUsd: 0,
     errors: [],
+    digest: null,
   };
   // If this write fails, Firestore can't be reached and nothing could be recorded anyway.
   await deps.store.runs.put(opened);

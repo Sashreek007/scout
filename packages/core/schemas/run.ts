@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TimestampSchema } from './common';
+import { JobKeySchema, TimestampSchema } from './common';
 import { FilterReasonSchema, TriageDecisionSchema } from './job';
 
 const Count = z.int().min(0);
@@ -44,6 +44,34 @@ export const RunErrorSchema = z.strictObject({
 });
 export type RunError = z.infer<typeof RunErrorSchema>;
 
+/** One job in the digest: what the notification's Today page lists (#12). Job details only. */
+export const DigestLineSchema = z.strictObject({
+  jobKey: JobKeySchema,
+  company: z.string().min(1),
+  title: z.string().min(1),
+  location: z.string().min(1),
+  decision: z.enum(['apply', 'maybe']),
+  score: z.int().min(0).max(100),
+  reason: z.string(),
+});
+export type DigestLine = z.infer<typeof DigestLineSchema>;
+
+/** The digest of one run: its one-line title, the best new jobs, what is waiting, what failed. */
+export const DigestSchema = z.strictObject({
+  /** The notification's one short line, like "9 new matches, 4 questions waiting". */
+  title: z.string().min(1),
+  /** New apply and maybe jobs this run, of which at most 10 are in `lines`. */
+  matches: Count,
+  lines: z.array(DigestLineSchema).max(10),
+  questions: Count,
+  sheets: Count,
+  /** Sources and steps that failed, by name. */
+  failures: z.array(z.string().min(1)),
+  /** True once the notification went out. */
+  notified: z.boolean(),
+});
+export type Digest = z.infer<typeof DigestSchema>;
+
 /** `runs/{runId}`: one pipeline or agent run, with its counts and errors. */
 export const RunSchema = z
   .strictObject({
@@ -78,6 +106,8 @@ export const RunSchema = z
     }),
     costUsd: z.number().min(0),
     errors: z.array(RunErrorSchema),
+    /** The digest sent after a pipeline run (#12). Null for agent runs and runs before #12. */
+    digest: DigestSchema.nullable().default(null),
   })
   .refine((run) => (run.status === 'running') === (run.finishedAt === null), {
     message: 'a run has finishedAt exactly when it is no longer running',
