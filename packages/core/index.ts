@@ -3,6 +3,7 @@ export * from './boards';
 export * from './env';
 export * from './errors';
 export * from './issues';
+export * from './jobs';
 export * from './keys';
 export * from './locations';
 export type * from './ports';
