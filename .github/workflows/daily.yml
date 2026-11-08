@@ -1,0 +1,49 @@
+# The morning run (docs/architecture.md, section 1): collect, filter, triage and the digest, every day
+# at 14:00 UTC, which is 7:00 in Edmonton in winter and 8:00 in summer. Issue #13.
+name: Daily run
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs at once would triage and queue the same jobs twice.
+concurrency:
+  group: daily-run
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    name: Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # First, so the failure step can tell this workflow's own run from earlier ones.
+      - name: Note the start time
+        run: echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run the pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SCOUT_COMMIT: ${{ github.sha }}
+          # A repository variable, not a secret: the dashboard's public address.
+          SCOUT_DASHBOARD_URL: ${{ vars.SCOUT_DASHBOARD_URL }}
+        run: pnpm pipeline
+      # Runs when anything above failed, including a crash before the pipeline could write its run
+      # or send the digest, so a missing digest always means something.
+      - name: Tell the phone the run failed
+        if: failure()
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: pnpm scout notify-failure --since "$STARTED_AT" --link "$RUN_URL"
