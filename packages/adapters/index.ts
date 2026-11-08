@@ -23,6 +23,14 @@ export { createBoardSources, type BoardSourcesOptions } from './sources/create-b
 export { GreenhouseSource } from './sources/greenhouse-source';
 export { LeverSource } from './sources/lever-source';
 export { createLimiter, type Limiter } from './sources/limiter';
+export {
+  countDocuments,
+  exportFirestore,
+  restoreFirestore,
+  type Backup,
+  type BackupDoc,
+  type ExportResult,
+} from './backup/firestore-backup';
 export { connectFirestore } from './store/connect';
 export { clearEmulator, emulatorFirestore } from './store/emulator';
 export { FirestoreStore, fromFirestore } from './store/firestore-store';
