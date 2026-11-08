@@ -1,6 +1,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { buildJobs, wasRead, type BuildJobsInput, type Coverage } from './jobs';
+import {
+  MISSES_TO_CLOSE,
+  buildJobs,
+  missedJobs,
+  wasRead,
+  type BuildJobsInput,
+  type Coverage,
+} from './jobs';
 import { contentHash } from './keys';
 import { DESCRIPTION_MAX_BYTES, JobSchema, ListingSchema, type Job, type Listing } from './schemas';
 
@@ -395,5 +402,58 @@ describe('buildJobs: new, changed and unchanged', () => {
     const { jobs } = await run([board()], { stored: [before] });
     expect(jobs[0]!.job.sources.map((s) => s.name)).toEqual(['greenhouse']);
     expect(jobs[0]!.change).toBe('unchanged');
+  });
+});
+
+describe('buildJobs: a job seen again', () => {
+  it('resets missedRuns, and a job that comes back is active again', async () => {
+    const before = await stored([board()], { missedRuns: 2, active: false });
+    const { jobs } = await run([board()], { stored: [before] });
+    expect(jobs[0]!.job).toMatchObject({ missedRuns: 0, active: true });
+  });
+
+  it('resets them too when one of its sources could not be read', async () => {
+    const before = await stored([board(), aListing()], { missedRuns: 1 });
+    const { jobs } = await run([aListing()], {
+      stored: [before],
+      coverage: { ...ALL_READ, boardsRead: new Set() },
+    });
+    expect(jobs[0]!.job.missedRuns).toBe(0);
+  });
+});
+
+describe('missedJobs', () => {
+  const missed = (jobs: Job[], coverage: Coverage = ALL_READ, seen: string[] = []) =>
+    missedJobs({ stored: jobs, seen: new Set(seen), coverage });
+
+  it('counts a run that read every source and listed it nowhere as a miss', async () => {
+    const job = await stored([board(), aListing()]);
+    expect(missed([job])).toEqual([{ job: { ...job, missedRuns: 1 }, becameInactive: false }]);
+  });
+
+  it(`makes a job inactive at ${String(MISSES_TO_CLOSE)} misses`, async () => {
+    const job = await stored([board()], { missedRuns: 2 });
+    expect(missed([job])).toEqual([
+      { job: { ...job, missedRuns: 3, active: false }, becameInactive: true },
+    ]);
+  });
+
+  it('does not count a run where one of its sources could not be read', async () => {
+    const job = await stored([board(), aListing()]);
+    expect(missed([job], { ...ALL_READ, boardsRead: new Set() })).toEqual([]);
+    expect(missed([job], { ...ALL_READ, sourcesRead: new Set(['greenhouse']) })).toEqual([]);
+  });
+
+  it('leaves jobs seen this run, jobs already inactive and his own links alone', async () => {
+    const seen = await stored([board()]);
+    const gone = await stored([aListing({ applyUrl: 'https://jobs.lever.co/acme/x' })], {
+      active: false,
+      missedRuns: 3,
+    });
+    const pasted = await stored([board()], {
+      key: 'other:pasted',
+      sources: [{ name: 'you', url: 'https://acme.example/careers/1' }],
+    });
+    expect(missed([seen, gone, pasted], ALL_READ, [seen.key])).toEqual([]);
   });
 });

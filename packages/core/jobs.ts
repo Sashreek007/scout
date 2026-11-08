@@ -123,7 +123,8 @@ interface Identity {
  * one of them couldn't be read, like a board that timed out, the stored posting is kept, so a bad
  * day doesn't change its text and send it back to triage. A job whose content hash changed loses
  * its filter result and triage, so both run again. New jobs are stored only with a location in
- * Canada. Every job seen gets `lastSeenAt`; jobs not seen are left to #10.
+ * Canada. Every job seen gets `lastSeenAt`, no misses and `active` again; jobs not seen are counted
+ * by `missedJobs`.
  */
 export async function buildJobs(input: BuildJobsInput): Promise<BuildJobsResult> {
   const priority = (name: string) => {
@@ -248,15 +249,11 @@ export async function buildJobs(input: BuildJobsInput): Promise<BuildJobsResult>
       const sources = mergeRefs([...unread, ...built.sources], priority);
       jobs.push({
         change: 'unchanged',
-        job: JobSchema.parse({ ...before, sources, lastSeenAt: input.now }),
+        job: JobSchema.parse({ ...before, ...SEEN, sources, lastSeenAt: input.now }),
       });
       continue;
     }
-    const kept = {
-      firstSeenAt: before.firstSeenAt,
-      active: before.active,
-      missedRuns: before.missedRuns,
-    };
+    const kept = { firstSeenAt: before.firstSeenAt, ...SEEN };
     if (built.contentHash === before.contentHash) {
       const job = { ...built, ...kept, filter: before.filter, triage: before.triage };
       jobs.push({ change: 'unchanged', job: JobSchema.parse(job) });
@@ -265,6 +262,39 @@ export async function buildJobs(input: BuildJobsInput): Promise<BuildJobsResult>
     }
   }
   return { jobs, outsideCanada };
+}
+
+/** A job a source listed this run: no misses, and active again if it had been taken down (#10). */
+const SEEN = { active: true, missedRuns: 0 } as const;
+
+/** Runs in a row a job can go unlisted before it counts as taken down (#10). */
+export const MISSES_TO_CLOSE = 3;
+
+export interface MissedJob {
+  job: Job;
+  /** True for the run that made it inactive, when its application should be closed. */
+  becameInactive: boolean;
+}
+
+/**
+ * The stored jobs this run read every source of and found in none (#10). Each gets one more miss,
+ * and at three it becomes inactive. A job with a source that couldn't be read this run, like a
+ * board that timed out or a link he pasted, isn't missed. Jobs already inactive aren't counted
+ * again, so they cost no writes.
+ */
+export function missedJobs(input: {
+  stored: readonly Job[];
+  seen: ReadonlySet<JobKey>;
+  coverage: Coverage;
+}): MissedJob[] {
+  return input.stored
+    .filter((job) => job.active && !input.seen.has(job.key))
+    .filter((job) => job.sources.every((ref) => wasRead(input.coverage, ref.name, job.boardToken)))
+    .map((job) => {
+      const missedRuns = job.missedRuns + 1;
+      const active = missedRuns < MISSES_TO_CLOSE;
+      return { job: { ...job, missedRuns, active }, becameInactive: !active };
+    });
 }
 
 function compare(a: string, b: string): number {

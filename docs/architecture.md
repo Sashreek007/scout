@@ -766,7 +766,7 @@ Across the three steps, Claude made two decisions, tailored one resume and draft
 | What happens | What scout does |
 |---|---|
 | A source is down or changes its format | Zod rejects the bad data. That source is logged as failed in the run, and the other sources carry on. The digest names the failed source. |
-| A posting disappears before applying | The reader or filler gets a 404 or a "no longer accepting" page. The application moves to `closed`. |
+| A posting disappears before applying | Every run counts a miss for each job that no source listed, but only when it read every source the job came from, so a board that timed out isn't a miss. At three misses in a row the job becomes inactive, and its application moves to `closed` if it is between `queued` and `approved`; one in `filling` or later is left alone. A job that is listed again becomes active, but a closed application stays closed. A reader or filler that gets a 404, a 410 or a "no longer accepting applications" page closes the application at once with `closeGonePosting` in `packages/core/closing.ts`. |
 | The form gained a field since planning | The worker asks him live and holds the form for 10 minutes. If he doesn't answer in time, the application goes to `needs_answers` and nothing is submitted. |
 | CAPTCHA or login wall | The stage becomes `needs_hand`, a notification names the tab, and that tab stays open for 15 minutes so he can finish by hand. Other workers carry on. |
 | Two workers reach the same company | The claim transaction refuses the second one, which picks a different application. |
@@ -810,7 +810,8 @@ scout/
 │   │   ├── prices.ts              what a Claude call costs, for the run log
 │   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
-│   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed
+│   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed, missed
+│   │   ├── closing.ts             closing an application when its posting is taken down
 │   │   ├── planner.ts             the rules and memory passes of the answer planner
 │   │   ├── resume/                plan schema, template renderer, the pre-flight checks
 │   │   ├── kb/                    knowledge base schemas, matching, suggestion rules

@@ -23,6 +23,8 @@ export interface NormalizeResult {
   /** Every job this run saw, to be written. */
   jobs: BuiltJob[];
   counts: JobCounts;
+  /** What this run read, for counting misses (#10). */
+  coverage: Coverage;
   /** Per source that could be read: rows fetched, valid and invalid, and the jobs it made new or changed. */
   sources: Record<string, SourceCounts>;
 }
@@ -50,10 +52,11 @@ export function coverageOf(collected: CollectResult): Coverage {
  */
 export async function normalize(input: NormalizeInput): Promise<NormalizeResult> {
   const listings = input.collected.outcomes.flatMap((o) => (o.ok ? o.batch.listings : []));
+  const coverage = coverageOf(input.collected);
   const { jobs, outsideCanada } = await buildJobs({
     listings,
     stored: input.stored,
-    coverage: coverageOf(input.collected),
+    coverage,
     priority: input.priority,
     now: input.now,
   });
@@ -77,11 +80,15 @@ export async function normalize(input: NormalizeInput): Promise<NormalizeResult>
   }
   return {
     jobs,
+    coverage,
     counts: {
       new: count('new'),
       changed: count('changed'),
       unchanged: count('unchanged'),
       outsideCanada,
+      missed: 0,
+      inactive: 0,
+      applicationsClosed: 0,
     },
     sources,
   };
