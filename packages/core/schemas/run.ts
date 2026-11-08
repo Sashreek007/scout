@@ -35,6 +35,11 @@ export const RunErrorSchema = z.strictObject({
   step: z.string().min(1),
   target: z.string().min(1).nullable(),
   message: z.string().min(1),
+  /**
+   * The HTTP status, when one came back. A board that answered 404 is gone rather than broken, so
+   * the digest doesn't call it a failure (#12). Errors stored before #11 load with null.
+   */
+  status: z.int().nullable().default(null),
   at: TimestampSchema,
 });
 export type RunError = z.infer<typeof RunErrorSchema>;
