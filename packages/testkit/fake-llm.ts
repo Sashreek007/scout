@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import {
+  NO_USAGE,
   TriageSchema,
   type JobKey,
   type Llm,
@@ -8,16 +9,26 @@ import {
   type Profile,
   type Job,
   type Triage,
+  type TriageOutcome,
+  type TriageRun,
 } from '@scout/core';
 import { FIXTURES_DIR } from './paths';
 import { settle } from './settle';
 
+/** A recorded refusal: every model said no, with this explanation. */
+export interface RecordedRefusal {
+  refused: string;
+}
+
 export interface LlmRecordings {
-  /** Triage by job key. */
-  triage?: Record<JobKey, Triage>;
+  /** Triage by job key, or a refusal. */
+  triage?: Record<JobKey, Triage | RecordedRefusal>;
   /** Plans by the job key of the form being planned. */
   plan?: Record<JobKey, PlanResult>;
 }
+
+/** The model name FakeLlm reports for every answer. */
+export const FAKE_MODEL = 'fake-llm';
 
 export type FakeLlmCall = { method: 'triage'; jobKey: JobKey } | { method: 'plan'; jobKey: JobKey };
 
@@ -39,12 +50,27 @@ export class FakeLlm implements Llm {
     return new FakeLlm(JSON.parse(readFileSync(file, 'utf8')) as LlmRecordings);
   }
 
-  triage(job: Job, _profile: Profile): Promise<Triage> {
+  /** Answers every job from the recordings, as one batch. Costs and tokens are zero. */
+  triage(jobs: readonly Job[], _profile: Profile): Promise<TriageRun> {
     return settle(() => {
-      this.calls.push({ method: 'triage', jobKey: job.key });
-      const recorded = this.#recordings.triage?.[job.key];
-      if (!recorded) throw new Error(`FakeLlm has no recorded triage for ${job.key}`);
-      return TriageSchema.parse(recorded);
+      const outcomes = jobs.map((job): TriageOutcome => {
+        this.calls.push({ method: 'triage', jobKey: job.key });
+        const recorded = this.#recordings.triage?.[job.key];
+        if (!recorded) throw new Error(`FakeLlm has no recorded triage for ${job.key}`);
+        if ('refused' in recorded) {
+          return {
+            jobKey: job.key,
+            result: { ok: false, reason: 'refusal', message: recorded.refused },
+            model: FAKE_MODEL,
+          };
+        }
+        return {
+          jobKey: job.key,
+          result: { ok: true, triage: TriageSchema.parse(recorded) },
+          model: FAKE_MODEL,
+        };
+      });
+      return { outcomes, usage: { ...NO_USAGE }, costUsd: 0 };
     });
   }
 
