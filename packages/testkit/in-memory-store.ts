@@ -50,6 +50,11 @@ export class InMemoryStore implements Store {
         const parsed = JobSchema.parse(job);
         this.#jobs.set(parsed.key, parsed);
       }),
+    putMany: (jobs) =>
+      settle(() => {
+        const parsed = jobs.map((job) => JobSchema.parse(job));
+        for (const job of parsed) this.#jobs.set(job.key, job);
+      }),
     list: () => settle(() => [...this.#jobs.values()].map(copy)),
   };
 

@@ -192,7 +192,7 @@ How the boards are read (#6):
 - **Student roles.** A title counts if it says intern, internship, co-op, coop or student, or names a season with a year like "Winter 2027". That season and year also become the listing's term.
 - **Requests.** At most 4 board requests run at once across all three ATSs. Each gets 20 seconds and one retry. A board that answers 404 or can't be read is skipped and noted in the run, and the other boards carry on. An ATS fails as a whole only when none of its boards could be read and at least one failure wasn't a 404.
 - **Links.** scout builds the apply URL from the token and posting ID instead of taking it from the feed. A board posting then gets the same job key as the same posting in a GitHub list, even when a company points its Greenhouse links at its own careers page.
-- **Canadian boards only.** A listing or stored job adds its board only if one of its locations is in Canada, by the rule in `packages/core/locations.ts`, which the location filter (#8) is to use too. The Simplify list saved on November 5, 2026 names 486 boards, but only 45 through a Canadian posting: 23 on Greenhouse, 10 on Lever and 12 on Ashby. Sashreek chose this on #6. Stored jobs get the same check because every listing becomes a job (#7), so without it the other boards would come back the next day. Boards in `sources/boards.yaml` are always polled.
+- **Canadian boards only.** A listing or stored job adds its board only if one of its locations is in Canada, by the rule in `packages/core/locations.ts`, which the location filter (#8) is to use too. The Simplify list saved on November 5, 2026 names 486 boards, but only 45 through a Canadian posting: 23 on Greenhouse, 10 on Lever and 12 on Ashby. Sashreek chose this on #6. Stored jobs get the same check. Since #7 stores only postings in Canada, it matters only for a stored job that has since moved elsewhere. Boards in `sources/boards.yaml` are always polled.
 - **Locations in Canada.** A location counts if it says "Canada", has a province code after a comma like `Markham, ON`, ends in a province name like `Toronto, Ontario`, or is a Canadian city on its own, like Lever's `Toronto`. A Canadian name followed by somewhere else doesn't count, so `New Brunswick, NJ` and `Vancouver, WA` fail. The saved lists have 462 Canadian rows in Simplify and 288 in vansh. These are fewer than the table above shows, because the table was counted live at a different time on November 5.
 
 ### Jobs he adds himself
@@ -227,9 +227,11 @@ scout doesn't watch LinkedIn, so when Sashreek finds a job anywhere, he gives sc
 
 Every source turns its data into the same `Listing` shape. Then:
 
-1. **Job key.** When the apply URL is on a known board, the key is `{ats}:{board}:{postingId}`. Otherwise it is the source name plus a hash of the company and title.
-2. **Content hash.** A hash of the title, locations, terms and description. The pipeline writes a job only when the hash changes, which keeps Firestore writes low.
-3. **Hard filters**, in this order: location in Canada, role keywords, term, the excluded employers and sectors, eligibility clauses, and already applied. Each failed rule is saved as a reason, so the dashboard can show why a posting was dropped.
+1. **Job key.** When the apply URL is on a known board, the key is `{ats}:{board}:{postingId}`, so a posting gets the same key from every list and board that names it. Otherwise it is `{source}:{hash}`, where the hash covers the normalized company and title and the link exactly as the source listed it. The link is there because a company often lists one title twice as two postings: the saved lists have 41 such pairs in Canada, like Pinterest's Winter and Fall "Software Engineer Intern". A short link keys by the short link, so following it or not doesn't change the key. Keys never contain `/`. `packages/core/keys.ts`.
+2. **Dedupe.** Listings with the same key merge into one job, and `sources` keeps each source's name and link. A second pass merges a listing with a fallback key into another job when the company, the title without its term and one city match after normalizing, the seasons don't disagree, and the two come from different sources. A board job wins, then a job already stored, then the better source. If two jobs could be it, it stays on its own. This is how a vansh short link that couldn't be followed finds its Greenhouse job, and how a Workday posting in both lists is stored once: 117 postings on the saved lists. A listing merged once goes back into the same job on later runs. `packages/core/jobs.ts`.
+3. **Canada only.** A new job is stored only if one of its locations is in Canada, by the same rule as the boards. The other 6,205 postings on the saved lists are counted in the run and not stored, which keeps the job collection near 650 documents and the nightly backup small (#58). A stored job that moves outside Canada is still updated, and fails the location filter.
+4. **Content hash.** The SHA-256 of the normalized title, the sorted locations, the terms and the description. A job whose hash changed is rewritten with its filter result and triage cleared, so both run again. Every job seen gets `lastSeenAt`, written in batches of at most 500. When one of a job's sources couldn't be read this run, like a board that timed out, the stored posting is kept as it is, so a bad day doesn't change its text and send it back to triage.
+5. **Hard filters**, in this order: location in Canada, role keywords, term, the excluded employers and sectors, eligibility clauses, and already applied. Each failed rule is saved as a reason, so the dashboard can show why a posting was dropped.
 
 ### Triage
 
@@ -670,7 +672,7 @@ From the [Firebase pricing page](https://firebase.google.com/pricing), the [Stor
 
 | Service | Free amount | What we expect to use |
 |---|---|---|
-| Firestore, Spark plan | 50,000 reads, 20,000 writes and 20,000 deletes a day, 1 GiB stored | The daily run reads about 800 job documents and writes 50 to 150. Dashboard use adds a few hundred reads. |
+| Firestore, Spark plan | 50,000 reads, 20,000 writes and 20,000 deletes a day, 1 GiB stored | The daily run reads and writes about 650 job documents, because every job seen gets `lastSeenAt` (#7). Dashboard use adds a few hundred reads. |
 | Firebase Storage | Not available on Spark | Not used in the first version. |
 | Firebase Auth | 50,000 monthly active users on Spark | One. |
 | Vercel Hobby | Personal, non-commercial projects | The dashboard. No Vercel cron is used. |
@@ -789,6 +791,7 @@ scout/
 │   │   ├── filters.ts             Canada, role, term, values, eligibility, already applied
 │   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
+│   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed
 │   │   ├── planner.ts             the rules and memory passes of the answer planner
 │   │   ├── resume/                plan schema, template renderer, the pre-flight checks
 │   │   ├── kb/                    knowledge base schemas, matching, suggestion rules

@@ -28,6 +28,14 @@ export function termsInTitle(title: string): { rawTerm: string | null; terms: Te
 }
 
 /**
+ * A title with its season-and-year terms taken out, so "Software Developer Intern (Winter 2027)"
+ * and "Software Developer Intern" can be compared as one posting (#7).
+ */
+export function titleWithoutTerms(title: string): string {
+  return title.replace(SEASON_YEAR, ' ');
+}
+
+/**
  * True when a title reads like a student role: it says intern, internship, co-op, coop or student,
  * or names a season with a year, like "Summer 2027". "Internal" and "International" don't count.
  */

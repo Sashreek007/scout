@@ -14,6 +14,16 @@ export const SourceCountsSchema = z.strictObject({
 });
 export type SourceCounts = z.infer<typeof SourceCountsSchema>;
 
+/** What a run did to the stored jobs (#7). Runs stored before #7 load with zeros. */
+export const JobCountsSchema = z.strictObject({
+  new: Count,
+  changed: Count,
+  unchanged: Count,
+  /** Postings with no location in Canada, which weren't stored. */
+  outsideCanada: Count,
+});
+export type JobCounts = z.infer<typeof JobCountsSchema>;
+
 /** An error that was caught so the run could carry on. Never holds a secret (#11). */
 export const RunErrorSchema = z.strictObject({
   step: z.string().min(1),
@@ -37,6 +47,7 @@ export const RunSchema = z
     startedAt: TimestampSchema,
     finishedAt: TimestampSchema.nullable(),
     sources: z.record(z.string().min(1), SourceCountsSchema),
+    jobs: JobCountsSchema.default({ new: 0, changed: 0, unchanged: 0, outsideCanada: 0 }),
     filterReasons: z.partialRecord(FilterReasonSchema, Count),
     triageDecisions: z.partialRecord(TriageDecisionSchema, Count),
     tokens: z.strictObject({ input: Count, output: Count, cacheRead: Count }),

@@ -248,10 +248,11 @@ describe('collecting the lists and boards from the real config', () => {
 });
 
 describe('knownShortLinks', () => {
-  it('maps each followed short link to the apply URL stored on its job', () => {
+  it('maps each short link a list followed to the apply URL stored on its job', () => {
     const followed = aJob({
       applyUrl: 'https://jobs.lever.co/acme/123',
       sources: [
+        { name: 'lever', url: 'https://acme.example/careers/123' },
         { name: 'vansh', url: 'https://go.vansh.nyc/ok1' },
         { name: 'simplify', url: 'https://jobs.lever.co/acme/123' },
       ],
@@ -262,7 +263,8 @@ describe('knownShortLinks', () => {
       unresolvedUrl: true,
       sources: [{ name: 'vansh', url: 'https://go.vansh.nyc/dead' }],
     });
-    expect(knownShortLinks([followed, stuck])).toEqual(
+    // Lever's own link to the careers page isn't a short link, so it isn't there.
+    expect(knownShortLinks([followed, stuck], 'vansh')).toEqual(
       new Map([['https://go.vansh.nyc/ok1', 'https://jobs.lever.co/acme/123']]),
     );
   });
