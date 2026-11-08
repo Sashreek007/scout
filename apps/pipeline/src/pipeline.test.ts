@@ -1,0 +1,96 @@
+import { DESCRIPTION_MAX_BYTES } from '@scout/core';
+import { InMemoryStore, startFakeJobBoard, type FakeJobBoard } from '@scout/testkit';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { runId, runPipeline } from './pipeline';
+import { clockAt, fixturePipeline } from './pipeline.fixture';
+
+const DAY_1 = new Date('2026-11-05T14:00:00Z');
+const DAY_2 = new Date('2026-11-06T14:00:00Z');
+
+// Each run reads 20,674 saved rows, so these get more than the default 5 seconds under coverage.
+describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () => {
+  let board: FakeJobBoard;
+  beforeEach(async () => {
+    board = await startFakeJobBoard();
+  });
+  afterEach(async () => {
+    await board.close();
+  });
+
+  it('stores each posting in Canada once, and a second run creates nothing new', async () => {
+    const store = new InMemoryStore();
+    const first = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
+    const stored = await store.jobs.list();
+    // 462 Simplify rows and 288 vansh rows are in Canada, and 21 board postings. The ones that are
+    // one posting merge, which leaves 647 jobs. The 6,205 postings elsewhere aren't stored.
+    expect(first.jobs).toEqual({ new: 647, changed: 0, unchanged: 0, outsideCanada: 6205 });
+    expect(stored).toHaveLength(first.jobs.new);
+
+    const second = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_2)));
+    const again = await store.jobs.list();
+    expect(second.jobs).toEqual({ ...first.jobs, new: 0, unchanged: first.jobs.new });
+    expect(again.map((job) => job.key).sort()).toEqual(stored.map((job) => job.key).sort());
+    for (const job of again) {
+      expect(job.firstSeenAt).toEqual(DAY_1);
+      expect(job.lastSeenAt).toEqual(DAY_2);
+    }
+  });
+
+  it('keys without "/", plain text descriptions under 50 KB, and one source name each', async () => {
+    const store = new InMemoryStore();
+    await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
+    const jobs = await store.jobs.list();
+    expect(new Set(jobs.map((job) => job.applyUrl)).size).toBe(jobs.length);
+    for (const job of jobs) {
+      expect(job.key).not.toContain('/');
+      const names = job.sources.map((ref) => ref.name);
+      expect(new Set(names).size).toBe(names.length);
+      if (job.description === null) continue;
+      expect(job.description).not.toMatch(/<\/?[a-z][^>]*>/i);
+      expect(job.description).not.toMatch(/&(?:lt|gt|amp|nbsp);/);
+      expect(new TextEncoder().encode(job.description).length).toBeLessThanOrEqual(
+        DESCRIPTION_MAX_BYTES,
+      );
+    }
+    // A short link that couldn't be followed still finds its job: 117 postings are in both lists
+    // and 20 vansh rows joined a board job.
+    const bySources = (names: string[]) =>
+      jobs.filter((job) => names.every((name) => job.sources.some((ref) => ref.name === name)))
+        .length;
+    expect({
+      simplifyAndVansh: bySources(['simplify', 'vansh']),
+      vanshOnBoards: jobs.filter(
+        (job) => job.boardToken !== null && job.sources.some((ref) => ref.name === 'vansh'),
+      ).length,
+      boardAndList: jobs.filter(
+        (job) =>
+          job.sources.some((ref) => ['greenhouse', 'lever', 'ashby'].includes(ref.name)) &&
+          job.sources.some((ref) => ['simplify', 'vansh'].includes(ref.name)),
+      ).length,
+    }).toEqual({ simplifyAndVansh: 117, vanshOnBoards: 20, boardAndList: 8 });
+  });
+
+  it('records the run with its counts per source', async () => {
+    const store = new InMemoryStore();
+    const run = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
+    expect(await store.runs.get(runId(DAY_1))).toEqual(run);
+    expect(run.id).toBe('2026-11-05T14-00-00Z-pipeline');
+    const counts = (fetched: number, valid: number, made: number) => ({
+      fetched,
+      valid,
+      invalid: 0,
+      new: made,
+      changed: 0,
+    });
+    expect(run.sources).toEqual({
+      simplify: counts(17653, 5365, 462),
+      vansh: counts(3021, 2193, 289),
+      greenhouse: counts(15, 1, 1),
+      lever: counts(82, 17, 17),
+      ashby: counts(124, 3, 3),
+    });
+    // Most boards the lists name have no saved copy, so the fake board answers 404 for them.
+    expect(run.status).toBe('partial');
+    expect(run.errors.every((error) => error.message.includes('404'))).toBe(true);
+  });
+});

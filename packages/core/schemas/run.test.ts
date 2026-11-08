@@ -22,4 +22,14 @@ describe('RunSchema', () => {
   it('rejects a filter reason that does not exist', () => {
     expect(RunSchema.safeParse({ ...validRun, filterReasons: { weather: 1 } }).success).toBe(false);
   });
+
+  it('loads a run stored before job counts existed, with zeros', () => {
+    expect('jobs' in validRun).toBe(false);
+    expect(RunSchema.parse(validRun).jobs).toEqual({
+      new: 0,
+      changed: 0,
+      unchanged: 0,
+      outsideCanada: 0,
+    });
+  });
 });

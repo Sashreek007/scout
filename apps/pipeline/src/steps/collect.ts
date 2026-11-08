@@ -54,16 +54,20 @@ export async function collectAll(input: CollectInput): Promise<CollectResult> {
 }
 
 /**
- * Short links that were already followed, from the stored jobs: each source link that differs from
- * the job's resolved apply URL. Passed to the list sources so each short link is followed only
- * once. It relies on the job keeping each listing's `sourceUrl` in `sources[].url` (#7).
+ * Short links that one list already followed, from the stored jobs: each link that list gave that
+ * differs from the job's resolved apply URL. Passed to that list's source so each short link is
+ * followed only once. It relies on the job keeping each listing's `sourceUrl` in `sources[].url`
+ * (#7). Only the named source's links count, so a board feed's own link to a careers page is never
+ * taken for a short link.
  */
-export function knownShortLinks(jobs: readonly Job[]): Map<string, string> {
+export function knownShortLinks(jobs: readonly Job[], source: string): Map<string, string> {
   const known = new Map<string, string>();
   for (const job of jobs) {
     if (job.unresolvedUrl) continue;
     for (const ref of job.sources) {
-      if (ref.url && ref.url !== job.applyUrl) known.set(ref.url, job.applyUrl);
+      if (ref.name === source && ref.url && ref.url !== job.applyUrl) {
+        known.set(ref.url, job.applyUrl);
+      }
     }
   }
   return known;
