@@ -1,5 +1,5 @@
 import { FirestoreStore, clearEmulator, emulatorFirestore } from '@scout/adapters';
-import { startFakeJobBoard } from '@scout/testkit';
+import { aProfile, startFakeJobBoard } from '@scout/testkit';
 import { describe, expect, it } from 'vitest';
 import { runPipeline } from './pipeline';
 import { clockAt, fixturePipeline } from './pipeline.fixture';
@@ -9,6 +9,7 @@ describe('runPipeline against the Firestore emulator', () => {
     await clearEmulator();
     const db = emulatorFirestore();
     const store = new FirestoreStore(db);
+    await store.profile.put(aProfile());
     const board = await startFakeJobBoard();
     try {
       const day1 = new Date('2026-11-05T14:00:00Z');

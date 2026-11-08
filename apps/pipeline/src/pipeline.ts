@@ -1,6 +1,6 @@
-// One daily run, step by step: collect (#5, #6), normalize (#7). Later steps arrive with their
-// stories. Everything that talks to the outside comes in through `PipelineDeps`, so tests run the
-// real steps against saved fixtures and an in-memory store.
+// One daily run, step by step: collect (#5, #6), normalize (#7), filter (#8). Later steps arrive
+// with their stories. Everything that talks to the outside comes in through `PipelineDeps`, so
+// tests run the real steps against saved fixtures and an in-memory store.
 import {
   BOARD_ATS,
   type BoardAts,
@@ -12,6 +12,7 @@ import {
   type Store,
 } from '@scout/core';
 import { collectAll } from './steps/collect';
+import { filterJobs } from './steps/filter';
 import { normalize } from './steps/normalize';
 
 export interface PipelineDeps {
@@ -36,6 +37,8 @@ export function runId(startedAt: Date, kind: Run['kind'] = 'pipeline'): string {
 /** Runs every step there is so far and records the run in `runs/{runId}`. */
 export async function runPipeline(deps: PipelineDeps): Promise<Run> {
   const startedAt = deps.clock();
+  const profile = await deps.store.profile.get();
+  if (!profile) throw new Error('profile/main is missing: run `pnpm scout profile push` first');
   const stored = await deps.store.jobs.list();
   const lists = deps.lists(stored);
   const collected = await collectAll({
@@ -44,12 +47,19 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
     jobs: stored,
     boardSources: deps.boardSources,
   });
-  const normalized = await normalize(deps.store, {
+  const normalized = await normalize({
     collected,
     stored,
     priority: [...BOARD_ATS, ...lists.map((source) => source.id)],
     now: startedAt,
   });
+  const applications = await deps.store.applications.list();
+  const filtered = filterJobs(
+    normalized.jobs,
+    profile,
+    new Map(applications.map((app) => [app.jobKey, app.stage])),
+  );
+  await deps.store.jobs.putMany(filtered.jobs.map((built) => built.job));
 
   const errors: RunError[] = collected.outcomes.flatMap((outcome): RunError[] =>
     outcome.ok
@@ -70,7 +80,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
     finishedAt: deps.clock(),
     sources: normalized.sources,
     jobs: normalized.counts,
-    filterReasons: {},
+    filterReasons: filtered.reasons,
     triageDecisions: {},
     tokens: { input: 0, output: 0, cacheRead: 0 },
     costUsd: 0,
