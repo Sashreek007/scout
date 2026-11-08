@@ -2,6 +2,7 @@ import {
   AgentConfigSchema,
   AlreadyExistsError,
   ApplicationSchema,
+  DeviceSchema,
   JobSchema,
   MemoryEntrySchema,
   ModelsConfigSchema,
@@ -164,6 +165,20 @@ export class FirestoreStore implements Store {
     get: async () => read(ProfileSchema, (await this.#db.doc('profile/main').get()).data()),
     put: async (profile) => {
       await this.#db.doc('profile/main').set(ProfileSchema.parse(profile));
+    },
+  };
+
+  readonly devices: Store['devices'] = {
+    list: async () => {
+      const snap = await this.#db.collection('devices').get();
+      return snap.docs.map((doc) => DeviceSchema.parse(fromFirestore(doc.data())));
+    },
+    put: async (device) => {
+      const parsed = DeviceSchema.parse(device);
+      await this.#db.collection('devices').doc(parsed.token).set(parsed);
+    },
+    remove: async (token) => {
+      await this.#db.collection('devices').doc(token).delete();
     },
   };
 

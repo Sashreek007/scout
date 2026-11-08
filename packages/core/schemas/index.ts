@@ -1,6 +1,7 @@
 export * from './agent-config';
 export * from './application';
 export * from './common';
+export * from './device';
 export * from './form';
 export * from './job';
 export * from './listing';

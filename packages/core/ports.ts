@@ -7,6 +7,7 @@ import type {
   AgentConfig,
   AnswerValue,
   Application,
+  Device,
   FormSpec,
   Job,
   JobKey,
@@ -157,6 +158,13 @@ export interface Store {
     list(): Promise<Run[]>;
     /** Deletes every run that started before `cutoff`, and says how many (#11). */
     deleteBefore(cutoff: Date): Promise<number>;
+  };
+  /** The devices that get push notifications, by FCM token (#12). */
+  readonly devices: {
+    list(): Promise<Device[]>;
+    put(device: Device): Promise<void>;
+    /** Removes a device FCM says is no longer registered. Removing one that isn't there is fine. */
+    remove(token: string): Promise<void>;
   };
   /** The settings documents. Each reads as its defaults when the document is missing. */
   readonly config: {

@@ -353,6 +353,27 @@ export function storeContract(name: string, makeStore: () => Store | Promise<Sto
       });
     });
 
+    describe('devices', () => {
+      // A made-up token, shaped like FCM's.
+      const token = `fGx1:APA91b${'x'.repeat(140)}`;
+
+      it('lists the devices put, and removes one by its token', async () => {
+        await store.devices.put({ token, label: 'iPhone home screen', addedAt: T0 });
+        expect(await store.devices.list()).toEqual([
+          { token, label: 'iPhone home screen', addedAt: T0 },
+        ]);
+        await store.devices.remove(token);
+        await store.devices.remove(token);
+        expect(await store.devices.list()).toEqual([]);
+      });
+
+      it('rejects a token that could not be a document ID', async () => {
+        await expect(
+          store.devices.put({ token: 'a/b', label: null, addedAt: T0 }),
+        ).rejects.toThrow();
+      });
+    });
+
     describe('config', () => {
       it('reads the defaults while a settings document is missing', async () => {
         expect(await store.config.agent.get()).toEqual(anAgentConfig());
