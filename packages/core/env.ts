@@ -19,6 +19,13 @@ export const EnvSchema = z.strictObject({
   FIREBASE_AUTH_EMULATOR_HOST: z.string().min(1).optional(),
   /** Sends job-board requests to the fake job board instead of the real hosts, in local dev. */
   SCOUT_BOARD_BASE_URL: z.url().optional(),
+  /** The commit the daily run was built from; the workflow sets it from `github.sha` (#13). */
+  SCOUT_COMMIT: z
+    .string()
+    .regex(/^[0-9a-f]{7,40}$/)
+    .optional(),
+  /** The dashboard's address, for the digest's link to Today. Not a secret (#12). */
+  SCOUT_DASHBOARD_URL: z.url().optional(),
 });
 export type Env = z.infer<typeof EnvSchema>;
 

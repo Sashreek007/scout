@@ -5,7 +5,6 @@
   "type": "module",
   "description": "The daily job GitHub Actions runs: collect, filter, triage, plan, digest.",
   "scripts": {
-    "start": "tsx src/main.ts",
     "scout": "tsx src/cli.ts"
   },
   "dependencies": {

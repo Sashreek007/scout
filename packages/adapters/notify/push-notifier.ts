@@ -1,7 +1,12 @@
 // Web push to the dashboard on his phone, through Firebase Cloud Messaging with the service account
 // (#12, docs/architecture.md, section 5, "Notifier"). Tokens are never put in a message or a log.
 import type { Notice, Notifier, Store } from '@scout/core';
-import type { BatchResponse, FidMulticastMessage } from 'firebase-admin/messaging';
+import { getApps } from 'firebase-admin/app';
+import {
+  getMessaging,
+  type BatchResponse,
+  type FidMulticastMessage,
+} from 'firebase-admin/messaging';
 
 /** The one call scout makes to FCM. `getMessaging()` from firebase-admin has it. */
 export interface PushMessaging {
@@ -15,6 +20,16 @@ export interface PushNotifierOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Tries after the first. 2 by default (#12). */
   retries?: number;
+}
+
+/**
+ * FCM's messaging client for the Firebase app `connectFirestore` started, with the same service
+ * account. Throws if no app has been started.
+ */
+export function firebaseMessaging(): PushMessaging {
+  const app = getApps()[0];
+  if (!app) throw new Error('Start Firebase with connectFirestore before sending notifications');
+  return getMessaging(app);
 }
 
 /** FCM's answer for a device that will never work again: it is removed. */
