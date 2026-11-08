@@ -21,6 +21,12 @@ export const JobCountsSchema = z.strictObject({
   unchanged: Count,
   /** Postings with no location in Canada, which weren't stored. */
   outsideCanada: Count,
+  /** Stored jobs this run read every source of and found in none (#10). */
+  missed: Count.default(0),
+  /** Jobs that reached three misses this run and became inactive. */
+  inactive: Count.default(0),
+  /** Applications closed because their posting became inactive. */
+  applicationsClosed: Count.default(0),
 });
 export type JobCounts = z.infer<typeof JobCountsSchema>;
 
@@ -47,7 +53,15 @@ export const RunSchema = z
     startedAt: TimestampSchema,
     finishedAt: TimestampSchema.nullable(),
     sources: z.record(z.string().min(1), SourceCountsSchema),
-    jobs: JobCountsSchema.default({ new: 0, changed: 0, unchanged: 0, outsideCanada: 0 }),
+    jobs: JobCountsSchema.default({
+      new: 0,
+      changed: 0,
+      unchanged: 0,
+      outsideCanada: 0,
+      missed: 0,
+      inactive: 0,
+      applicationsClosed: 0,
+    }),
     filterReasons: z.partialRecord(FilterReasonSchema, Count),
     triageDecisions: z.partialRecord(TriageDecisionSchema, Count),
     /** Claude's tokens this run. Runs stored before #9 load with no cache writes. */

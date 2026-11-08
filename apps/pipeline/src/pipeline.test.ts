@@ -1,5 +1,13 @@
 import { DESCRIPTION_MAX_BYTES } from '@scout/core';
-import { InMemoryStore, aProfile, startFakeJobBoard, type FakeJobBoard } from '@scout/testkit';
+import {
+  InMemoryStore,
+  aCreationEvent,
+  aJob,
+  anApplication,
+  aProfile,
+  startFakeJobBoard,
+  type FakeJobBoard,
+} from '@scout/testkit';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runId, runPipeline } from './pipeline';
 import { clockAt, fixturePipeline } from './pipeline.fixture';
@@ -29,7 +37,15 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
     const stored = await store.jobs.list();
     // 462 Simplify rows and 288 vansh rows are in Canada, and 21 board postings. The ones that are
     // one posting merge, which leaves 647 jobs. The 6,205 postings elsewhere aren't stored.
-    expect(first.jobs).toEqual({ new: 647, changed: 0, unchanged: 0, outsideCanada: 6205 });
+    expect(first.jobs).toEqual({
+      new: 647,
+      changed: 0,
+      unchanged: 0,
+      outsideCanada: 6205,
+      missed: 0,
+      inactive: 0,
+      applicationsClosed: 0,
+    });
     expect(stored).toHaveLength(first.jobs.new);
 
     const second = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_2)));
@@ -122,5 +138,73 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
       'profile/main is missing',
     );
     expect(board.requests).toEqual([]);
+  });
+
+  it('closes a posting no source listed for three runs, and leaves one whose board failed', async () => {
+    const store = await withProfile();
+    // Simplify is read every run and never lists this job, so each run is a miss.
+    const gone = aJob({
+      key: 'simplify:0123456789abcdef',
+      ats: 'other',
+      boardToken: null,
+      postingId: null,
+      applyUrl: 'https://careers.example.com/jobs/1',
+      sources: [{ name: 'simplify', url: 'https://careers.example.com/jobs/1' }],
+    });
+    // Acme's board has no saved copy, so it answers 404 and is never read: never a miss.
+    const unread = aJob({
+      key: 'greenhouse:acme:1',
+      boardToken: 'acme',
+      postingId: '1',
+      applyUrl: 'https://job-boards.greenhouse.io/acme/jobs/1',
+      sources: [{ name: 'greenhouse', url: null }],
+    });
+    await store.jobs.putMany([gone, unread]);
+    const review = anApplication({ jobKey: gone.key, stage: 'queued' });
+    await store.applications.create(review, aCreationEvent(review));
+
+    const days = [DAY_1, DAY_2, new Date('2026-11-07T14:00:00Z')];
+    const runs = [];
+    for (const day of days)
+      runs.push(await runPipeline(await fixturePipeline(store, board, clockAt(day))));
+
+    expect(
+      runs.map((run) => [run.jobs.missed, run.jobs.inactive, run.jobs.applicationsClosed]),
+    ).toEqual([
+      [1, 0, 0],
+      [1, 0, 0],
+      [1, 1, 1],
+    ]);
+    expect(await store.jobs.get(gone.key)).toMatchObject({ active: false, missedRuns: 3 });
+    expect(await store.jobs.get(unread.key)).toMatchObject({ active: true, missedRuns: 0 });
+    expect((await store.applications.events(gone.key)).at(-1)).toEqual({
+      from: 'queued',
+      to: 'closed',
+      by: 'pipeline',
+      at: days[2],
+      detail: 'not listed for 3 runs in a row',
+    });
+
+    // A fourth run doesn't count it again or write it.
+    const fourth = await runPipeline(
+      await fixturePipeline(store, board, clockAt(new Date('2026-11-08T14:00:00Z'))),
+    );
+    expect(fourth.jobs.missed).toBe(0);
+    expect(await store.applications.events(gone.key)).toHaveLength(2);
+  });
+
+  it('sets a job that comes back active again, and never reopens its closed application', async () => {
+    const store = await withProfile();
+    await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
+    const [listed] = await store.jobs.list();
+    if (!listed) throw new Error('nothing was stored');
+    await store.jobs.put({ ...listed, active: false, missedRuns: 3 });
+    const app = anApplication({ jobKey: listed.key, stage: 'queued' });
+    await store.applications.create(app, aCreationEvent(app));
+    await store.moveStage(listed.key, { from: 'queued', to: 'closed', by: 'pipeline', at: DAY_1 });
+
+    await runPipeline(await fixturePipeline(store, board, clockAt(DAY_2)));
+    expect(await store.jobs.get(listed.key)).toMatchObject({ active: true, missedRuns: 0 });
+    expect((await store.applications.get(listed.key))?.stage).toBe('closed');
   });
 });

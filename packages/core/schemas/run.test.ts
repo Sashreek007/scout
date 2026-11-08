@@ -30,6 +30,9 @@ describe('RunSchema', () => {
       changed: 0,
       unchanged: 0,
       outsideCanada: 0,
+      missed: 0,
+      inactive: 0,
+      applicationsClosed: 0,
     });
   });
 });

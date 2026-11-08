@@ -3,6 +3,9 @@
 // tests run the real steps against saved fixtures and an in-memory store.
 import {
   BOARD_ATS,
+  MISSES_TO_CLOSE,
+  closeGonePosting,
+  missedJobs,
   type BoardAts,
   type BoardRef,
   type Job,
@@ -70,6 +73,23 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
   );
   await deps.store.jobs.putMany(filtered.jobs.map((built) => built.job));
 
+  // Jobs no source listed this run: a miss each, and at three the posting counts as taken down.
+  const missed = missedJobs({
+    stored,
+    seen: new Set(filtered.jobs.map((built) => built.job.key)),
+    coverage: normalized.coverage,
+  });
+  await deps.store.jobs.putMany(missed.map((miss) => miss.job));
+  let applicationsClosed = 0;
+  for (const miss of missed.filter((m) => m.becameInactive)) {
+    const closed = await closeGonePosting(deps.store, miss.job.key, {
+      by: 'pipeline',
+      detail: `not listed for ${String(MISSES_TO_CLOSE)} runs in a row`,
+      at: startedAt,
+    });
+    if (closed) applicationsClosed += 1;
+  }
+
   // Written before triage, so a failed batch never loses this run's jobs.
   const triaged = await triageJobs({
     store: deps.store,
@@ -101,7 +121,12 @@ export async function runPipeline(deps: PipelineDeps): Promise<Run> {
     startedAt,
     finishedAt: deps.clock(),
     sources: normalized.sources,
-    jobs: normalized.counts,
+    jobs: {
+      ...normalized.counts,
+      missed: missed.length,
+      inactive: missed.filter((m) => m.becameInactive).length,
+      applicationsClosed,
+    },
     filterReasons: filtered.reasons,
     triageDecisions: triaged.decisions,
     tokens: triaged.usage,
