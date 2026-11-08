@@ -11,6 +11,12 @@ describe('connectFirestore', () => {
     );
   });
 
+  it('needs a project when neither the variable nor the key names one', () => {
+    expect(() =>
+      connectFirestore({ FIREBASE_SERVICE_ACCOUNT: '{"type":"service_account"}' }),
+    ).toThrow('Set FIREBASE_PROJECT_ID: the service account key names no project.');
+  });
+
   it('never echoes a malformed key', () => {
     const key = 'not json but secret-looking-value';
     try {
