@@ -2,6 +2,7 @@ export * from './batches';
 export * from './boards';
 export * from './env';
 export * from './errors';
+export * from './filters';
 export * from './issues';
 export * from './jobs';
 export * from './keys';

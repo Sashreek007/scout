@@ -7,7 +7,6 @@ import {
   type Job,
   type JobCounts,
   type SourceCounts,
-  type Store,
 } from '@scout/core';
 import type { CollectResult } from './collect';
 
@@ -21,7 +20,7 @@ export interface NormalizeInput {
 }
 
 export interface NormalizeResult {
-  /** Every job this run saw, as written. */
+  /** Every job this run saw, to be written. */
   jobs: BuiltJob[];
   counts: JobCounts;
   /** Per source that could be read: rows fetched, valid and invalid, and the jobs it made new or changed. */
@@ -46,10 +45,10 @@ export function coverageOf(collected: CollectResult): Coverage {
 }
 
 /**
- * Builds the jobs from this run's listings and writes every one it saw, new, changed or seen again,
- * in batches of at most 500.
+ * Builds the jobs from this run's listings: every one it saw, new, changed or seen again. The
+ * pipeline writes them once, after the filters (#8) have run on them.
  */
-export async function normalize(store: Store, input: NormalizeInput): Promise<NormalizeResult> {
+export async function normalize(input: NormalizeInput): Promise<NormalizeResult> {
   const listings = input.collected.outcomes.flatMap((o) => (o.ok ? o.batch.listings : []));
   const { jobs, outsideCanada } = await buildJobs({
     listings,
@@ -58,7 +57,6 @@ export async function normalize(store: Store, input: NormalizeInput): Promise<No
     priority: input.priority,
     now: input.now,
   });
-  await store.jobs.putMany(jobs.map((built) => built.job));
 
   const count = (change: BuiltJob['change'], source?: string) =>
     jobs.filter(

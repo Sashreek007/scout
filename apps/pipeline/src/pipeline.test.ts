@@ -1,5 +1,5 @@
 import { DESCRIPTION_MAX_BYTES } from '@scout/core';
-import { InMemoryStore, startFakeJobBoard, type FakeJobBoard } from '@scout/testkit';
+import { InMemoryStore, aProfile, startFakeJobBoard, type FakeJobBoard } from '@scout/testkit';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runId, runPipeline } from './pipeline';
 import { clockAt, fixturePipeline } from './pipeline.fixture';
@@ -8,6 +8,12 @@ const DAY_1 = new Date('2026-11-05T14:00:00Z');
 const DAY_2 = new Date('2026-11-06T14:00:00Z');
 
 // Each run reads 20,674 saved rows, so these get more than the default 5 seconds under coverage.
+async function withProfile(): Promise<InMemoryStore> {
+  const store = new InMemoryStore();
+  await store.profile.put(aProfile());
+  return store;
+}
+
 describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () => {
   let board: FakeJobBoard;
   beforeEach(async () => {
@@ -18,7 +24,7 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
   });
 
   it('stores each posting in Canada once, and a second run creates nothing new', async () => {
-    const store = new InMemoryStore();
+    const store = await withProfile();
     const first = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
     const stored = await store.jobs.list();
     // 462 Simplify rows and 288 vansh rows are in Canada, and 21 board postings. The ones that are
@@ -37,7 +43,7 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
   });
 
   it('keys without "/", plain text descriptions under 50 KB, and one source name each', async () => {
-    const store = new InMemoryStore();
+    const store = await withProfile();
     await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
     const jobs = await store.jobs.list();
     expect(new Set(jobs.map((job) => job.applyUrl)).size).toBe(jobs.length);
@@ -71,7 +77,7 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
   });
 
   it('records the run with its counts per source', async () => {
-    const store = new InMemoryStore();
+    const store = await withProfile();
     const run = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
     expect(await store.runs.get(runId(DAY_1))).toEqual(run);
     expect(run.id).toBe('2026-11-05T14-00-00Z-pipeline');
@@ -92,5 +98,29 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
     // Most boards the lists name have no saved copy, so the fake board answers 404 for them.
     expect(run.status).toBe('partial');
     expect(run.errors.every((error) => error.message.includes('404'))).toBe(true);
+  });
+
+  it('runs the hard filters on every job it saw and counts what each rule dropped', async () => {
+    const store = await withProfile();
+    const run = await runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)));
+    const jobs = await store.jobs.list();
+    expect(jobs.every((job) => job.filter !== null)).toBe(true);
+    // Of the 647 jobs, the role rule drops hardware, analog, product and business roles, the term
+    // rule the 2026 terms (the example profile starts in January 2027), and the values rule five
+    // General Dynamics UK rows. None of the saved list rows carry a description, so no
+    // eligibility clause can show up in them.
+    expect(run.filterReasons).toEqual({ role: 123, term: 65, values: 5 });
+    // 473 pass, the same number as #8's location count only by chance. 178 of them have no
+    // known term, like Simplify's "N/A" or a vansh season other than Summer, and are flagged.
+    expect(jobs.filter((job) => job.filter?.passed).length).toBe(473);
+    expect(jobs.filter((job) => job.filter?.flags.includes('term_unknown')).length).toBe(178);
+  });
+
+  it('stops before collecting anything when there is no profile', async () => {
+    const store = new InMemoryStore();
+    await expect(runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)))).rejects.toThrow(
+      'profile/main is missing',
+    );
+    expect(board.requests).toEqual([]);
   });
 });

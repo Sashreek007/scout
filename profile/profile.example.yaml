@@ -63,3 +63,7 @@ filters:
   location: canada_only
   target_roles: [software engineering intern, co-op, AI/ML intern, DevOps intern]
   daily_cap: 20  # null for no limit
+  # The role filter: a title must name one of role_keywords and none of excluded_role_keywords.
+  # Leave role_keywords out to use the defaults in packages/core/schemas/profile.ts.
+  excluded_role_keywords: [hardware, analog, mixed signal, mechanical, sales, marketing]
+  terms: []  # e.g. [Winter 2027, Summer 2027]; empty takes every term from earliest_start on
