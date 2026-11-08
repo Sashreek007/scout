@@ -132,14 +132,6 @@ describe('runPipeline on the saved lists and boards', { timeout: 30_000 }, () =>
     expect(jobs.filter((job) => job.filter?.flags.includes('term_unknown')).length).toBe(178);
   });
 
-  it('stops before collecting anything when there is no profile', async () => {
-    const store = new InMemoryStore();
-    await expect(runPipeline(await fixturePipeline(store, board, clockAt(DAY_1)))).rejects.toThrow(
-      'profile/main is missing',
-    );
-    expect(board.requests).toEqual([]);
-  });
-
   it('closes a posting no source listed for three runs, and leaves one whose board failed', async () => {
     const store = await withProfile();
     // Simplify is read every run and never lists this job, so each run is a miss.

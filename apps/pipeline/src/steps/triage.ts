@@ -71,6 +71,7 @@ export async function triageJobs(input: TriageStepInput): Promise<TriageStepResu
       step: 'triage',
       target: null,
       message: (error as Error).message,
+      status: null,
       at: now,
     });
     return result;
@@ -87,6 +88,7 @@ export async function triageJobs(input: TriageStepInput): Promise<TriageStepResu
         step: 'triage',
         target: job.key,
         message: outcome.result.message,
+        status: null,
         at: now,
       });
       continue;

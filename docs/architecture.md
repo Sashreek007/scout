@@ -636,7 +636,7 @@ Sashreek chose an Electron Mac app on November 5, 2026.
 | `applications/{jobKey}` | Stage, form, answer sheet, lease, submit markers, notes | Same ID as the job, so there is at most one application per posting. |
 | `applications/{jobKey}/events/{eventId}` | Every stage move: from, to, by, when, detail | Append-only history. The ID is the move's time in milliseconds and the move, like `1793887260000_queued_planning`, so documents sort in the order the moves happened and the security rules can check that a stage change wrote its event. |
 | `questions/{questionId}` | One question for one field of one application, with `status` open or answered. Live questions also carry the worker, the tab title and an `expiresAt` time | The Today page lists the open ones. Answering one also writes to `memory` when he ticks "remember". |
-| `runs/{runId}` | One pipeline or agent run, with counts and errors | The dashboard shows when a source failed. |
+| `runs/{runId}` | One pipeline or agent run, with counts and errors. Written as `running` at the start with the commit, and closed with `ok`, `partial` or `failed`. Runs older than 90 days are deleted at the start of each run (#11). | The dashboard shows when a source failed. |
 | `kb/bases/items/{baseId}` | A base resume: template, bullets in order, skill rows, the source `.tex`, and whether it is active | Switching the active base is one write, and each resume records which base it used. |
 | `kb/facts/items/{factId}` | A fact about him: claim, numbers, source, status, entry it belongs to | Status decides whether it can be printed. |
 | `kb/bullets/items/{bulletId}` | An approved resume wording, its fact IDs, its entry, the kinds of job it suits, its measured line count | Alternates for the same entry sit side by side. |
@@ -765,7 +765,8 @@ Across the three steps, Claude made two decisions, tailored one resume and draft
 
 | What happens | What scout does |
 |---|---|
-| A source is down or changes its format | Zod rejects the bad data. That source is logged as failed in the run, and the other sources carry on. The digest names the failed source. |
+| A source is down or changes its format | Zod rejects the bad data. That source is logged as failed in the run, and the other sources carry on. The digest names the failed source. The same goes for one board, one triage call or one form read: each is caught, listed in the run's `errors` with its step, target and HTTP status, and the run ends `partial`. Only a bad configuration, like a missing profile, or Firestore not answering ends a run `failed`. |
+| An error message holds a secret | Every message is cleaned before it is stored: the values of `ANTHROPIC_API_KEY` and `FIREBASE_SERVICE_ACCOUNT`, with the account's private key and client email, and anything shaped like an API key, a private key, an `Authorization` header or a `key=` query string become `[redacted]`. `packages/core/redact.ts` (#11). |
 | A posting disappears before applying | Every run counts a miss for each job that no source listed, but only when it read every source the job came from, so a board that timed out isn't a miss. At three misses in a row the job becomes inactive, and its application moves to `closed` if it is between `queued` and `approved`; one in `filling` or later is left alone. A job that is listed again becomes active, but a closed application stays closed. A reader or filler that gets a 404, a 410 or a "no longer accepting applications" page closes the application at once with `closeGonePosting` in `packages/core/closing.ts`. |
 | The form gained a field since planning | The worker asks him live and holds the form for 10 minutes. If he doesn't answer in time, the application goes to `needs_answers` and nothing is submitted. |
 | CAPTCHA or login wall | The stage becomes `needs_hand`, a notification names the tab, and that tab stays open for 15 minutes so he can finish by hand. Other workers carry on. |
@@ -808,6 +809,7 @@ scout/
 │   │   ├── filters.ts             Canada, role, term, values, eligibility, already applied
 │   │   ├── triage.ts              what triage sends Claude, which jobs it picks, how answers are checked
 │   │   ├── prices.ts              what a Claude call costs, for the run log
+│   │   ├── redact.ts              secrets kept out of the run log
 │   │   ├── locations.ts           which locations are in Canada
 │   │   ├── keys.ts                job keys and content hashes
 │   │   ├── jobs.ts                listings into jobs: merging, dedupe, new or changed, missed

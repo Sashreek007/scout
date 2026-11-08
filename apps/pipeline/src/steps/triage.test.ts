@@ -116,7 +116,13 @@ describe('triageJobs', () => {
     const { result } = await step([job('a:1'), job('a:2')], llm);
     expect(result.jobs.map((j) => j.key)).toEqual(['a:2']);
     expect(result.errors).toEqual([
-      { step: 'triage', target: 'a:1', message: 'claude-sonnet-5-5 refused: cyber', at: NOW },
+      {
+        step: 'triage',
+        target: 'a:1',
+        message: 'claude-sonnet-5-5 refused: cyber',
+        status: null,
+        at: NOW,
+      },
     ]);
   });
 

@@ -155,6 +155,8 @@ export interface Store {
     get(id: string): Promise<Run | null>;
     put(run: Run): Promise<void>;
     list(): Promise<Run[]>;
+    /** Deletes every run that started before `cutoff`, and says how many (#11). */
+    deleteBefore(cutoff: Date): Promise<number>;
   };
   /** The settings documents. Each reads as its defaults when the document is missing. */
   readonly config: {

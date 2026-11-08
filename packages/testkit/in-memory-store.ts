@@ -166,5 +166,16 @@ export class InMemoryStore implements Store {
         this.#runs.set(parsed.id, parsed);
       }),
     list: () => settle(() => [...this.#runs.values()].map(copy)),
+    deleteBefore: (cutoff) =>
+      settle(() => {
+        let deleted = 0;
+        for (const [id, run] of this.#runs) {
+          if (run.startedAt.getTime() < cutoff.getTime()) {
+            this.#runs.delete(id);
+            deleted += 1;
+          }
+        }
+        return deleted;
+      }),
   };
 }
